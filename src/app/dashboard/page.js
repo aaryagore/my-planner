@@ -121,11 +121,7 @@ export default function DashboardPage() {
   const completedTasks = tasks.filter((t) => t.completed);
   const habitsAchieved = habits.filter((h) => h.done >= h.target).length;
 
-  const topThreeList = (() => {
-    const pinned = activeTasks.filter((t) => t.isTopThree);
-    const unpinned = activeTasks.filter((t) => !t.isTopThree);
-    return [...pinned, ...unpinned].slice(0, 3);
-  })();
+  const topThreeList = activeTasks.filter((t) => t.isTopThree).slice(0, 3);
 
   const scheduledBlocks = scheduleSlots.filter((s) => Boolean(s.title));
   const upcomingDeadlines = tasks.filter((t) => Boolean(t.dueDate) && !t.completed);

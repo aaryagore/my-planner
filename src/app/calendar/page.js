@@ -204,6 +204,19 @@ export default function CalendarPage() {
               const dayNum = i + 1;
               const isToday = dayNum === 26;
 
+              // Display user's real tasks due on this date
+              const dayTasks = tasks.filter((t) => {
+                if (!t.dueDate) return false;
+                const parts = t.dueDate.split('-');
+                if (parts.length === 3) {
+                  const y = parseInt(parts[0], 10);
+                  const m = parseInt(parts[1], 10);
+                  const d = parseInt(parts[2], 10);
+                  return y === 2026 && m === 10 && d === dayNum;
+                }
+                return false;
+              });
+
               return (
                 <div
                   key={dayNum}
@@ -212,19 +225,23 @@ export default function CalendarPage() {
                   <div className="month-day-num">
                     {dayNum} {isToday ? '(Today)' : ''}
                   </div>
-                  {dayNum === 27 && (
-                    <div className="month-day-dot">Proposal Due</div>
-                  )}
-                  {dayNum === 28 && (
-                    <div className="month-day-dot" style={{ background: 'var(--color-warning)' }}>
-                      Presentation
+                  {dayTasks.map((t) => (
+                    <div
+                      key={t.id}
+                      className="month-day-dot"
+                      style={{
+                        background:
+                          t.priority === 'urgent'
+                            ? 'var(--color-danger)'
+                            : t.priority === 'important'
+                            ? 'var(--color-warning)'
+                            : 'var(--color-primary)',
+                      }}
+                      title={`${t.text}${t.priority ? ` (${t.priority})` : ''}`}
+                    >
+                      {t.text}
                     </div>
-                  )}
-                  {dayNum === 30 && (
-                    <div className="month-day-dot" style={{ background: 'var(--color-danger)' }}>
-                      Midterm Exam
-                    </div>
-                  )}
+                  ))}
                 </div>
               );
             })}
