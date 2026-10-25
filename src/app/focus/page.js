@@ -21,16 +21,20 @@ export default function FocusPage() {
   const [completedSessions, setCompletedSessions] = useState([]);
   const timerRef = useRef(null);
 
+  const focusStorageKey = `my_planner_focus_${user?.uid || 'guest'}`;
+
   useEffect(() => {
-    const saved = localStorage.getItem('my_planner_focus_sessions');
+    const saved = localStorage.getItem(focusStorageKey);
     if (saved) {
       try {
         setCompletedSessions(JSON.parse(saved));
       } catch (e) {
         console.warn(e);
       }
+    } else {
+      setCompletedSessions([]);
     }
-  }, []);
+  }, [focusStorageKey]);
 
   // Subscribe to real tasks to link to sessions
   useEffect(() => {
@@ -88,7 +92,7 @@ export default function FocusPage() {
               setCompletedSessions((prev) => {
                 const updated = [sessionRecord, ...prev];
                 try {
-                  localStorage.setItem('my_planner_focus_sessions', JSON.stringify(updated));
+                  localStorage.setItem(focusStorageKey, JSON.stringify(updated));
                   window.dispatchEvent(new Event('focus-sessions-changed'));
                 } catch (e) {
                   console.warn(e);

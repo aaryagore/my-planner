@@ -1,8 +1,9 @@
 // ============================================================
-// Habits Service — Weekly Consistency Tracking ($0 Free Tier)
+// Habits Service — Scoped to Authenticated User
 // ============================================================
-// Scoped to users/{uid}/habits in Firestore with localStorage fallback.
-// Tracks weekly target frequencies rather than high-stress streaks.
+// - Every new user account starts completely fresh (0 habits).
+// - Habits are stored in users/{uid}/habits in Firestore.
+// - Private and isolated per user.
 // ============================================================
 
 import { db, isFirebaseConfigured } from '@/lib/firebase';
@@ -16,69 +17,33 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 
-const LOCAL_HABITS_KEY = 'my_planner_demo_habits';
+function getStorageKey(userId) {
+  return `my_planner_habits_${userId || 'guest'}`;
+}
 
-const INITIAL_HABITS = [
-  {
-    id: 'habit-1',
-    name: 'Exercise / Workout',
-    icon: '🏃',
-    target: 3,
-    done: 2,
-    color: 'var(--color-accent)',
-  },
-  {
-    id: 'habit-2',
-    name: 'Reading (20 mins)',
-    icon: '📖',
-    target: 5,
-    done: 4,
-    color: 'var(--color-primary)',
-  },
-  {
-    id: 'habit-3',
-    name: 'Daily Hydration (2.5L)',
-    icon: '💧',
-    target: 7,
-    done: 6,
-    color: 'var(--color-warning)',
-  },
-  {
-    id: 'habit-4',
-    name: 'Evening Meditation',
-    icon: '🧘',
-    target: 4,
-    done: 2,
-    color: 'var(--color-danger)',
-  },
-];
-
-export function getLocalHabits() {
-  if (typeof window === 'undefined') return INITIAL_HABITS;
+export function getLocalHabits(userId) {
+  if (typeof window === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(LOCAL_HABITS_KEY);
-    if (!raw) {
-      localStorage.setItem(LOCAL_HABITS_KEY, JSON.stringify(INITIAL_HABITS));
-      return INITIAL_HABITS;
-    }
-    return JSON.parse(raw);
+    const raw = localStorage.getItem(getStorageKey(userId));
+    return raw ? JSON.parse(raw) : [];
   } catch {
-    return INITIAL_HABITS;
+    return [];
   }
 }
 
-function saveLocalHabits(habits) {
+function saveLocalHabits(userId, habits) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(LOCAL_HABITS_KEY, JSON.stringify(habits));
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(habits));
     window.dispatchEvent(new Event('local-habits-changed'));
   } catch (err) {
-    console.error('Failed to save habits to localStorage:', err);
+    console.error('Failed to save habits:', err);
   }
 }
 
 /**
- * Subscribe to habits in real-time
+ * Subscribe to habits in real-time.
+ * Every new account starts at [].
  */
 export function subscribeToHabits(userId, onUpdate) {
   const configured = isFirebaseConfigured();
@@ -100,17 +65,17 @@ export function subscribeToHabits(userId, onUpdate) {
         onUpdate(habits);
       },
       (err) => {
-        console.error('Firestore habits subscription error:', err);
-        onUpdate(getLocalHabits());
+        console.warn('Firestore habits subscription status:', err.message);
+        onUpdate(getLocalHabits(userId));
       }
     );
   }
 
-  // Local mode
-  onUpdate(getLocalHabits());
+  // Scoped local storage
+  onUpdate(getLocalHabits(userId));
 
   const handleUpdate = () => {
-    onUpdate(getLocalHabits());
+    onUpdate(getLocalHabits(userId));
   };
 
   window.addEventListener('storage', handleUpdate);
@@ -123,10 +88,10 @@ export function subscribeToHabits(userId, onUpdate) {
 }
 
 /**
- * Increment habit progress for the current week
+ * Increment habit progress
  */
 export async function incrementHabit(userId, habitId, currentDone, target) {
-  const nextDone = Math.min(currentDone + 1, target + 7); // Allow slight surplus
+  const nextDone = Math.min(currentDone + 1, target + 7);
   const configured = isFirebaseConfigured();
 
   if (configured && db && userId) {
@@ -138,11 +103,11 @@ export async function incrementHabit(userId, habitId, currentDone, target) {
     return;
   }
 
-  const habits = getLocalHabits().map((h) => {
+  const habits = getLocalHabits(userId).map((h) => {
     if (h.id === habitId) return { ...h, done: nextDone };
     return h;
   });
-  saveLocalHabits(habits);
+  saveLocalHabits(userId, habits);
 }
 
 /**
@@ -161,11 +126,11 @@ export async function decrementHabit(userId, habitId, currentDone) {
     return;
   }
 
-  const habits = getLocalHabits().map((h) => {
+  const habits = getLocalHabits(userId).map((h) => {
     if (h.id === habitId) return { ...h, done: nextDone };
     return h;
   });
-  saveLocalHabits(habits);
+  saveLocalHabits(userId, habits);
 }
 
 /**
@@ -187,7 +152,7 @@ export async function createHabit(userId, habitData) {
     return docRef.id;
   }
 
-  const current = getLocalHabits();
+  const current = getLocalHabits(userId);
   const newHabit = {
     id: `habit_${Date.now()}`,
     name: habitData.name.trim(),
@@ -197,7 +162,7 @@ export async function createHabit(userId, habitData) {
     color: habitData.color || 'var(--color-primary)',
   };
 
-  saveLocalHabits([...current, newHabit]);
+  saveLocalHabits(userId, [...current, newHabit]);
   return newHabit.id;
 }
 
@@ -213,6 +178,6 @@ export async function deleteHabit(userId, habitId) {
     return;
   }
 
-  const habits = getLocalHabits().filter((h) => h.id !== habitId);
-  saveLocalHabits(habits);
+  const habits = getLocalHabits(userId).filter((h) => h.id !== habitId);
+  saveLocalHabits(userId, habits);
 }

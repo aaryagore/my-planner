@@ -67,11 +67,19 @@ export default function DashboardPage() {
     };
   }, [user?.uid]);
 
-  // Read schedule slots
+  // Read schedule slots (scoped to active user)
   useEffect(() => {
+    // Purge any old legacy keys from previous steps
+    try {
+      localStorage.removeItem('my_planner_schedule_slots');
+      localStorage.removeItem('my_planner_demo_habits');
+      localStorage.removeItem('my_planner_demo_tasks');
+    } catch {}
+
+    const key = `my_planner_schedule_${user?.uid || 'guest'}`;
     const loadSchedule = () => {
       try {
-        const raw = localStorage.getItem('my_planner_schedule_slots');
+        const raw = localStorage.getItem(key);
         if (raw) setScheduleSlots(JSON.parse(raw));
         else setScheduleSlots([]);
       } catch (e) {
@@ -82,13 +90,14 @@ export default function DashboardPage() {
     loadSchedule();
     window.addEventListener('schedule-slots-changed', loadSchedule);
     return () => window.removeEventListener('schedule-slots-changed', loadSchedule);
-  }, []);
+  }, [user?.uid]);
 
-  // Read focus sessions
+  // Read focus sessions (scoped to active user)
   useEffect(() => {
+    const key = `my_planner_focus_${user?.uid || 'guest'}`;
     const loadFocus = () => {
       try {
-        const raw = localStorage.getItem('my_planner_focus_sessions');
+        const raw = localStorage.getItem(key);
         if (raw) {
           const sessions = JSON.parse(raw);
           const total = sessions.reduce((acc, s) => acc + (s.durationMins || 25), 0);
@@ -104,7 +113,7 @@ export default function DashboardPage() {
     loadFocus();
     window.addEventListener('focus-sessions-changed', loadFocus);
     return () => window.removeEventListener('focus-sessions-changed', loadFocus);
-  }, []);
+  }, [user?.uid]);
 
   // Derived tasks & statistics
   const activeTasks = tasks.filter((t) => !t.completed);

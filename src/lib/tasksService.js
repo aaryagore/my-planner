@@ -1,11 +1,9 @@
 // ============================================================
-// Tasks Service — Cloud Firestore & Local Fallback
+// Tasks Service — Scoped to Authenticated User
 // ============================================================
-// Zero-Cost Firestore Strategy:
-// 1. Scoped to users/{uid}/tasks so every query is indexed and free.
-// 2. Real-time onSnapshot listener only listens to the active user's tasks.
-// 3. Reads and writes remain well within the 50,000 / 20,000 daily free limit.
-// 4. LocalStorage fallback ensures the app is 100% interactive even in demo mode!
+// - Every new user account starts completely fresh and clean (0 tasks).
+// - Authenticated tasks are scoped exclusively to users/{uid}/tasks.
+// - Private and isolated per user.
 // ============================================================
 
 import { db, isFirebaseConfigured } from '@/lib/firebase';
@@ -16,82 +14,38 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where,
   orderBy,
   onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
 
-const LOCAL_STORAGE_KEY = 'my_planner_demo_tasks';
+function getStorageKey(userId) {
+  return `my_planner_tasks_${userId || 'guest'}`;
+}
 
-const INITIAL_DEMO_TASKS = [
-  {
-    id: 'demo-1',
-    text: 'Finish project proposal draft',
-    priority: 'urgent',
-    isTopThree: true,
-    completed: false,
-    dueDate: '2026-10-27',
-    createdAt: Date.now() - 3600000,
-  },
-  {
-    id: 'demo-2',
-    text: 'Review lecture notes Ch. 5–7',
-    priority: 'important',
-    isTopThree: true,
-    completed: false,
-    dueDate: '2026-10-28',
-    createdAt: Date.now() - 7200000,
-  },
-  {
-    id: 'demo-3',
-    text: 'Reply to study-group messages',
-    priority: 'optional',
-    isTopThree: true,
-    completed: false,
-    dueDate: null,
-    createdAt: Date.now() - 10800000,
-  },
-  {
-    id: 'demo-4',
-    text: 'Set up weekly meal plan',
-    priority: 'optional',
-    isTopThree: false,
-    completed: true,
-    dueDate: '2026-10-25',
-    createdAt: Date.now() - 86400000,
-  },
-];
-
-// Helper to get local demo tasks
-export function getLocalTasks() {
-  if (typeof window === 'undefined') return INITIAL_DEMO_TASKS;
+export function getLocalTasks(userId) {
+  if (typeof window === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_TASKS));
-      return INITIAL_DEMO_TASKS;
-    }
-    return JSON.parse(raw);
+    const raw = localStorage.getItem(getStorageKey(userId));
+    return raw ? JSON.parse(raw) : [];
   } catch {
-    return INITIAL_DEMO_TASKS;
+    return [];
   }
 }
 
-// Helper to save local demo tasks
-function saveLocalTasks(tasks) {
+function saveLocalTasks(userId, tasks) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(tasks));
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(tasks));
+    window.dispatchEvent(new Event('local-tasks-changed'));
   } catch (err) {
-    console.error('Failed to save to localStorage:', err);
+    console.error('Failed to save tasks:', err);
   }
 }
 
 /**
  * Subscribe to tasks (real-time).
- * If user is authenticated and Firebase is configured, uses Cloud Firestore onSnapshot.
- * Otherwise, uses a window storage listener + local cache.
+ * Scoped strictly to the authenticated user. Every new account starts at [].
  */
 export function subscribeToTasks(userId, onUpdate) {
   const configured = isFirebaseConfigured();
@@ -103,6 +57,10 @@ export function subscribeToTasks(userId, onUpdate) {
     return onSnapshot(
       q,
       (snapshot) => {
+        if (snapshot.empty) {
+          onUpdate([]);
+          return;
+        }
         const tasks = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...docSnap.data(),
@@ -110,33 +68,27 @@ export function subscribeToTasks(userId, onUpdate) {
         onUpdate(tasks);
       },
       (err) => {
-        console.error('Firestore tasks subscription error:', err);
-        // Fallback to local on error
-        onUpdate(getLocalTasks());
+        console.warn('Firestore tasks subscription status:', err.message);
+        // Fallback to user-scoped local storage on network/permission error
+        onUpdate(getLocalTasks(userId));
       }
     );
   }
 
-  // Demo / Unauthenticated Mode
-  onUpdate(getLocalTasks());
+  // If user is unauthenticated or in local demo mode, read only user's scoped tasks
+  onUpdate(getLocalTasks(userId));
 
-  const handleStorage = () => {
-    onUpdate(getLocalTasks());
+  const handleUpdate = () => {
+    onUpdate(getLocalTasks(userId));
   };
 
-  window.addEventListener('storage', handleStorage);
-  window.addEventListener('local-tasks-changed', handleStorage);
+  window.addEventListener('storage', handleUpdate);
+  window.addEventListener('local-tasks-changed', handleUpdate);
 
   return () => {
-    window.removeEventListener('storage', handleStorage);
-    window.removeEventListener('local-tasks-changed', handleStorage);
+    window.removeEventListener('storage', handleUpdate);
+    window.removeEventListener('local-tasks-changed', handleUpdate);
   };
-}
-
-function notifyLocalChange() {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('local-tasks-changed'));
-  }
 }
 
 /**
@@ -161,8 +113,8 @@ export async function createTask(userId, taskData) {
     return docRef.id;
   }
 
-  // Local mode
-  const current = getLocalTasks();
+  // Scoped local storage
+  const current = getLocalTasks(userId);
   const newTask = {
     id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
     text: taskData.text.trim(),
@@ -176,9 +128,7 @@ export async function createTask(userId, taskData) {
     completedAt: null,
   };
 
-  const updated = [newTask, ...current];
-  saveLocalTasks(updated);
-  notifyLocalChange();
+  saveLocalTasks(userId, [newTask, ...current]);
   return newTask.id;
 }
 
@@ -198,8 +148,7 @@ export async function toggleTaskComplete(userId, taskId, currentCompleted) {
     return;
   }
 
-  // Local mode
-  const tasks = getLocalTasks().map((t) => {
+  const tasks = getLocalTasks(userId).map((t) => {
     if (t.id === taskId) {
       const nextCompleted = !currentCompleted;
       return {
@@ -211,8 +160,7 @@ export async function toggleTaskComplete(userId, taskId, currentCompleted) {
     }
     return t;
   });
-  saveLocalTasks(tasks);
-  notifyLocalChange();
+  saveLocalTasks(userId, tasks);
 }
 
 /**
@@ -227,38 +175,6 @@ export async function deleteTask(userId, taskId) {
     return;
   }
 
-  // Local mode
-  const tasks = getLocalTasks().filter((t) => t.id !== taskId);
-  saveLocalTasks(tasks);
-  notifyLocalChange();
-}
-
-/**
- * Update task fields
- */
-export async function updateTask(userId, taskId, updates) {
-  const configured = isFirebaseConfigured();
-
-  if (configured && db && userId) {
-    const taskRef = doc(db, 'users', userId, 'tasks', taskId);
-    await updateDoc(taskRef, {
-      ...updates,
-      updatedAt: serverTimestamp(),
-    });
-    return;
-  }
-
-  // Local mode
-  const tasks = getLocalTasks().map((t) => {
-    if (t.id === taskId) {
-      return {
-        ...t,
-        ...updates,
-        updatedAt: Date.now(),
-      };
-    }
-    return t;
-  });
-  saveLocalTasks(tasks);
-  notifyLocalChange();
+  const tasks = getLocalTasks(userId).filter((t) => t.id !== taskId);
+  saveLocalTasks(userId, tasks);
 }

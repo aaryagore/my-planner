@@ -28,20 +28,24 @@ export default function CalendarPage() {
   const [modalTitle, setModalTitle] = useState('');
   const [modalColor, setModalColor] = useState('var(--color-primary)');
 
+  const storageKey = `my_planner_schedule_${user?.uid || 'guest'}`;
+
   useEffect(() => {
-    const saved = localStorage.getItem('my_planner_schedule_slots');
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
       try {
         setSlots(JSON.parse(saved));
       } catch (e) {
         console.warn(e);
       }
+    } else {
+      setSlots(DEFAULT_SLOTS);
     }
-  }, []);
+  }, [storageKey]);
 
   const saveSlots = (updated) => {
     setSlots(updated);
-    localStorage.setItem('my_planner_schedule_slots', JSON.stringify(updated));
+    localStorage.setItem(storageKey, JSON.stringify(updated));
     window.dispatchEvent(new Event('schedule-slots-changed'));
   };
 
