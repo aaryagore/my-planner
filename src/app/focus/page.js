@@ -120,12 +120,13 @@ export default function FocusPage() {
 
             // Record completed session
             if (mode === 'focus') {
-              const currentTask = tasks.find((t) => t.id === selectedTaskId);
+              const now = new Date();
               const sessionRecord = {
                 id: Date.now(),
                 taskTitle: currentTask ? currentTask.text : 'General Focus Session',
                 durationMins: durations.focus,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                timestamp: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                date: now.toISOString().split('T')[0],
               };
               setCompletedSessions((prevSessions) => {
                 const updated = [sessionRecord, ...prevSessions];
