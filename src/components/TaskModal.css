@@ -1,0 +1,191 @@
+/* ============================================================
+   Task Modal Styles — Quick Capture
+   ============================================================ */
+
+.task-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: fadeIn 0.25s ease-out;
+}
+
+.task-modal-dialog {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  width: 100%;
+  max-width: 480px;
+  overflow: hidden;
+  position: relative;
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.task-modal-header {
+  padding: var(--space-5) var(--space-6) var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.task-modal-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.task-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--bg-input);
+  border: none;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.task-modal-close:hover {
+  background: var(--bg-input-hover);
+  color: var(--text-primary);
+}
+
+.task-modal-body {
+  padding: var(--space-5) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.task-input-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.task-input-field label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.task-input-field input,
+.task-input-field textarea,
+.task-input-field select {
+  padding: 0.75rem var(--space-3);
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  transition: all var(--transition-fast);
+}
+
+.task-input-field textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.task-input-field input:focus,
+.task-input-field textarea:focus,
+.task-input-field select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-ghost);
+}
+
+/* Priority picker pills */
+.priority-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.priority-btn {
+  padding: 0.6rem var(--space-2);
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  transition: all var(--transition-fast);
+}
+
+.priority-btn:hover {
+  border-color: var(--border-medium);
+}
+
+.priority-btn.selected.urgent {
+  background: var(--color-danger-ghost);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.priority-btn.selected.important {
+  background: var(--color-warning-ghost);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.priority-btn.selected.optional {
+  background: var(--color-accent-ghost);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* Checkbox toggle */
+.task-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.task-checkbox-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.task-checkbox-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.task-modal-footer {
+  padding: var(--space-4) var(--space-6) var(--space-5);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  border-top: 1px solid var(--border-light);
+}

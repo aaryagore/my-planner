@@ -1,0 +1,159 @@
+/* ============================================================
+   Calendar & Time-Blocking Styles
+   ============================================================ */
+
+.calendar-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.calendar-view-toggles {
+  display: flex;
+  background: var(--bg-card);
+  padding: 3px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-light);
+  gap: 2px;
+}
+
+.calendar-view-btn {
+  padding: 0.4rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.calendar-view-btn.active {
+  background: var(--color-primary);
+  color: white;
+  box-shadow: 0 2px 6px var(--color-primary-glow);
+}
+
+/* Time block schedule view */
+.schedule-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.schedule-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: var(--space-4);
+  align-items: stretch;
+  min-height: 54px;
+}
+
+.schedule-time-col {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  padding-top: var(--space-3);
+  text-align: right;
+}
+
+.schedule-slot {
+  background: var(--bg-card);
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.schedule-slot:hover {
+  border-color: var(--color-primary-light);
+  background: var(--color-primary-ghost);
+}
+
+.schedule-slot.has-block {
+  border-style: solid;
+  border-left-width: 5px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-xs);
+}
+
+.schedule-slot.has-block:hover {
+  transform: translateX(2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.schedule-block-title {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.schedule-block-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.schedule-empty-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+/* Month preview calendar mini-grid */
+.month-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.month-day-cell {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  transition: all var(--transition-fast);
+}
+
+.month-day-cell:hover {
+  border-color: var(--border-medium);
+  transform: translateY(-2px);
+}
+
+.month-day-cell.is-today {
+  border-color: var(--color-primary);
+  background: var(--color-primary-ghost);
+}
+
+.month-day-num {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.month-day-dot {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--color-primary);
+  color: white;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
