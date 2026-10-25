@@ -90,8 +90,7 @@ export function subscribeToHabits(userId, onUpdate) {
       habitsRef,
       (snapshot) => {
         if (snapshot.empty) {
-          // If Firestore is empty for a new user, return local initial habits
-          onUpdate(getLocalHabits());
+          onUpdate([]);
           return;
         }
         const habits = snapshot.docs.map((docSnap) => ({

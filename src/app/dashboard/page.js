@@ -8,24 +8,6 @@ import { subscribeToHabits } from '@/lib/habitsService';
 import TaskModal from '@/components/TaskModal';
 import './dashboard.css';
 
-/* ── Sample schedule & upcoming ── */
-const SAMPLE_TIME_BLOCKS = [
-  { time: '09:00', title: 'Deep work session',       duration: '2h', color: 'var(--color-primary)' },
-  { time: '11:00', title: null },
-  { time: '12:00', title: 'Lunch & recharge',         duration: '1h', color: 'var(--color-accent)' },
-  { time: '13:00', title: 'Review & research',        duration: '1.5h', color: 'var(--color-warning)' },
-  { time: '14:30', title: null },
-  { time: '15:00', title: 'Team / Study sync',        duration: '1h', color: 'var(--color-primary)' },
-  { time: '16:00', title: null },
-];
-
-const SAMPLE_UPCOMING = [
-  { text: 'Project milestone deadline',  date: 'Tomorrow',  color: 'var(--color-danger)' },
-  { text: 'Study group presentation',    date: 'Wed',       color: 'var(--color-primary)' },
-  { text: 'Review notes Ch. 4–6',        date: 'Fri',       color: 'var(--color-warning)' },
-  { text: 'Weekly retrospective',        date: 'Sunday',    color: 'var(--color-accent)' },
-];
-
 /* ── Priority badge helper ───────────────────────────────── */
 const priorityBadge = (p) => {
   const map = {
@@ -37,15 +19,17 @@ const priorityBadge = (p) => {
   return <span className={b.className}>{b.label}</span>;
 };
 
-/* ── Dashboard page ──────────────────────────────────────── */
 export default function DashboardPage() {
   const { user, isConfigured } = useAuth();
   const [greeting, setGreeting] = useState('');
   const [dateStr, setDateStr] = useState('');
   const [tasks, setTasks] = useState([]);
   const [habits, setHabits] = useState([]);
+  const [scheduleSlots, setScheduleSlots] = useState([]);
+  const [focusTimeMins, setFocusTimeMins] = useState(0);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
+  // Greet user based on client time
   useEffect(() => {
     const now = new Date();
     const h = now.getHours();
@@ -68,24 +52,61 @@ export default function DashboardPage() {
     const unsubscribe = subscribeToTasks(user?.uid, (allTasks) => {
       setTasks(allTasks);
     });
-
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
   }, [user?.uid]);
 
-  // Subscribe to habits
+  // Subscribe to real habits
   useEffect(() => {
     const unsubscribe = subscribeToHabits(user?.uid, (allHabits) => {
       setHabits(allHabits);
     });
-
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
   }, [user?.uid]);
 
-  // Derive Top 3 items: either pinned or top uncompleted items
+  // Read schedule slots
+  useEffect(() => {
+    const loadSchedule = () => {
+      try {
+        const raw = localStorage.getItem('my_planner_schedule_slots');
+        if (raw) setScheduleSlots(JSON.parse(raw));
+        else setScheduleSlots([]);
+      } catch (e) {
+        setScheduleSlots([]);
+      }
+    };
+
+    loadSchedule();
+    window.addEventListener('schedule-slots-changed', loadSchedule);
+    return () => window.removeEventListener('schedule-slots-changed', loadSchedule);
+  }, []);
+
+  // Read focus sessions
+  useEffect(() => {
+    const loadFocus = () => {
+      try {
+        const raw = localStorage.getItem('my_planner_focus_sessions');
+        if (raw) {
+          const sessions = JSON.parse(raw);
+          const total = sessions.reduce((acc, s) => acc + (s.durationMins || 25), 0);
+          setFocusTimeMins(total);
+        } else {
+          setFocusTimeMins(0);
+        }
+      } catch (e) {
+        setFocusTimeMins(0);
+      }
+    };
+
+    loadFocus();
+    window.addEventListener('focus-sessions-changed', loadFocus);
+    return () => window.removeEventListener('focus-sessions-changed', loadFocus);
+  }, []);
+
+  // Derived tasks & statistics
   const activeTasks = tasks.filter((t) => !t.completed);
   const completedTasks = tasks.filter((t) => t.completed);
   const habitsAchieved = habits.filter((h) => h.done >= h.target).length;
@@ -93,9 +114,19 @@ export default function DashboardPage() {
   const topThreeList = (() => {
     const pinned = activeTasks.filter((t) => t.isTopThree);
     const unpinned = activeTasks.filter((t) => !t.isTopThree);
-    const combined = [...pinned, ...unpinned];
-    return combined.slice(0, 3);
+    return [...pinned, ...unpinned].slice(0, 3);
   })();
+
+  const scheduledBlocks = scheduleSlots.filter((s) => Boolean(s.title));
+  const upcomingDeadlines = tasks.filter((t) => Boolean(t.dueDate) && !t.completed);
+
+  const formatFocusTime = (mins) => {
+    if (!mins || mins === 0) return '0m';
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  };
 
   const userDisplayName = user?.displayName
     ? user.displayName.split(' ')[0]
@@ -134,7 +165,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Live Stats */}
+      {/* Real-Time Live Stats */}
       <div className="stats-row">
         <div className="stat-card">
           <div className="stat-value">{activeTasks.length}</div>
@@ -145,18 +176,20 @@ export default function DashboardPage() {
           <div className="stat-label">Completed</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">2h 15m</div>
-          <div className="stat-label">Focus time</div>
+          <div className="stat-value">{formatFocusTime(focusTimeMins)}</div>
+          <div className="stat-label">Focus Time</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{habits.length ? `${habitsAchieved}/${habits.length}` : '0/0'}</div>
+          <div className="stat-value">
+            {habits.length > 0 ? `${habitsAchieved}/${habits.length}` : '0/0'}
+          </div>
           <div className="stat-label">Habits Met</div>
         </div>
       </div>
 
       {/* Main grid */}
       <div className="dashboard-grid">
-        {/* ── Top 3 Priorities ── */}
+        {/* ── 1. Top 3 Priorities ── */}
         <div className="card dashboard-card">
           <div className="card-header">
             <h2 className="card-title">
@@ -205,7 +238,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* ── Time Blocks ── */}
+        {/* ── 2. Today's Schedule ── */}
         <div className="card dashboard-card">
           <div className="card-header">
             <h2 className="card-title">
@@ -216,32 +249,36 @@ export default function DashboardPage() {
               Calendar
             </Link>
           </div>
-          <div className="time-blocks">
-            {SAMPLE_TIME_BLOCKS.map((block, i) => (
-              <div className="time-block" key={i}>
-                <div className="time-block-time">{block.time}</div>
-                <div
-                  className="time-block-bar"
-                  style={{ background: block.title ? block.color : 'transparent' }}
-                />
-                {block.title ? (
+
+          {scheduledBlocks.length === 0 ? (
+            <div className="empty-state" style={{ padding: 'var(--space-5)' }}>
+              <p className="empty-state-text">
+                Your schedule is clear for today. Plan hours for deep work, classes, or breaks.
+              </p>
+              <Link href="/calendar" className="btn btn-primary">
+                ＋ Plan time blocks
+              </Link>
+            </div>
+          ) : (
+            <div className="time-blocks">
+              {scheduledBlocks.map((block, i) => (
+                <div className="time-block" key={i}>
+                  <div className="time-block-time">{block.time}</div>
+                  <div
+                    className="time-block-bar"
+                    style={{ background: block.color || 'var(--color-primary)' }}
+                  />
                   <div className="time-block-content">
                     <div className="time-block-title">{block.title}</div>
-                    {block.duration && (
-                      <div className="time-block-meta">{block.duration}</div>
-                    )}
+                    <div className="time-block-meta">1h block</div>
                   </div>
-                ) : (
-                  <Link href="/calendar" className="time-block-empty">
-                    + Plan time block
-                  </Link>
-                )}
-              </div>
-            ))}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* ── Habits ── */}
+        {/* ── 3. Habits This Week ── */}
         <div className="card dashboard-card">
           <div className="card-header">
             <h2 className="card-title">
@@ -249,34 +286,46 @@ export default function DashboardPage() {
               Habits This Week
             </h2>
             <Link href="/habits" className="btn btn-ghost">
-              See all
+              Manage
             </Link>
           </div>
-          <div className="habits-mini">
-            {habits.slice(0, 4).map((habit) => (
-              <div className="habit-mini-item" key={habit.id}>
-                <span className="habit-mini-icon">{habit.icon}</span>
-                <div className="habit-mini-info">
-                  <div className="habit-mini-name">{habit.name}</div>
-                  <div className="habit-mini-progress">
-                    {habit.done}/{habit.target} this week
+
+          {habits.length === 0 ? (
+            <div className="empty-state" style={{ padding: 'var(--space-5)' }}>
+              <p className="empty-state-text">
+                No habits tracked yet. Set your first weekly consistency target!
+              </p>
+              <Link href="/habits" className="btn btn-primary">
+                ＋ Add a habit
+              </Link>
+            </div>
+          ) : (
+            <div className="habits-mini">
+              {habits.slice(0, 4).map((habit) => (
+                <div className="habit-mini-item" key={habit.id}>
+                  <span className="habit-mini-icon">{habit.icon}</span>
+                  <div className="habit-mini-info">
+                    <div className="habit-mini-name">{habit.name}</div>
+                    <div className="habit-mini-progress">
+                      {habit.done}/{habit.target} this week
+                    </div>
+                  </div>
+                  <div className="habit-mini-bar-track">
+                    <div
+                      className="habit-mini-bar-fill"
+                      style={{
+                        width: `${Math.min((habit.done / habit.target) * 100, 100)}%`,
+                        background: habit.color || 'var(--color-primary)',
+                      }}
+                    />
                   </div>
                 </div>
-                <div className="habit-mini-bar-track">
-                  <div
-                    className="habit-mini-bar-fill"
-                    style={{
-                      width: `${Math.min((habit.done / habit.target) * 100, 100)}%`,
-                      background: habit.color || 'var(--color-primary)',
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* ── Upcoming ── */}
+        {/* ── 4. Coming Up ── */}
         <div className="card dashboard-card">
           <div className="card-header">
             <h2 className="card-title">
@@ -287,18 +336,40 @@ export default function DashboardPage() {
               Calendar
             </Link>
           </div>
-          <div className="upcoming-list">
-            {SAMPLE_UPCOMING.map((item, i) => (
-              <div className="upcoming-item" key={i}>
-                <div
-                  className="upcoming-dot"
-                  style={{ background: item.color }}
-                />
-                <span className="upcoming-text">{item.text}</span>
-                <span className="upcoming-date">{item.date}</span>
-              </div>
-            ))}
-          </div>
+
+          {upcomingDeadlines.length === 0 ? (
+            <div className="empty-state" style={{ padding: 'var(--space-5)' }}>
+              <p className="empty-state-text">
+                No upcoming deadlines on your calendar.
+              </p>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setIsTaskModalOpen(true)}
+              >
+                ＋ Add task with due date
+              </button>
+            </div>
+          ) : (
+            <div className="upcoming-list">
+              {upcomingDeadlines.slice(0, 4).map((item) => (
+                <div className="upcoming-item" key={item.id}>
+                  <div
+                    className="upcoming-dot"
+                    style={{
+                      background:
+                        item.priority === 'urgent'
+                          ? 'var(--color-danger)'
+                          : item.priority === 'important'
+                          ? 'var(--color-warning)'
+                          : 'var(--color-accent)',
+                    }}
+                  />
+                  <span className="upcoming-text">{item.text}</span>
+                  <span className="upcoming-date">{item.dueDate}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -307,11 +378,9 @@ export default function DashboardPage() {
         <span className="sample-notice-icon">
           {isConfigured ? '☁️' : '💾'}
         </span>
-        {isConfigured
-          ? user
-            ? `Syncing live with Cloud Firestore for ${user.email} (Spark Free Tier)`
-            : 'Sign in from the sidebar to sync your tasks across devices'
-          : 'Running in offline demo mode. Connect Firebase to enable cross-device cloud sync.'}
+        {isConfigured && user
+          ? `Connected to Firebase Cloud Firestore for ${user.email} (Spark Free Tier • Private to you)`
+          : 'Running in local mode.'}
       </div>
 
       {/* Task Creation Modal */}

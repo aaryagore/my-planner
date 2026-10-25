@@ -6,17 +6,17 @@ import { subscribeToTasks } from '@/lib/tasksService';
 import './calendar.css';
 
 const DEFAULT_SLOTS = [
-  { time: '08:00', title: 'Morning Routine & Planning', color: 'var(--color-accent)' },
-  { time: '09:00', title: 'Deep Work Block — Priority 1', color: 'var(--color-primary)' },
-  { time: '10:00', title: 'Deep Work Block — Priority 1', color: 'var(--color-primary)' },
-  { time: '11:00', title: null },
-  { time: '12:00', title: 'Lunch & Walk', color: 'var(--color-warning)' },
-  { time: '13:00', title: 'Review & Research', color: 'var(--color-accent)' },
-  { time: '14:00', title: null },
-  { time: '15:00', title: 'Study / Team Session', color: 'var(--color-primary)' },
-  { time: '16:00', title: null },
-  { time: '17:00', title: 'Daily Review & Wrap-up', color: 'var(--color-accent)' },
-  { time: '18:00', title: null },
+  { time: '08:00', title: null, color: 'var(--color-accent)' },
+  { time: '09:00', title: null, color: 'var(--color-primary)' },
+  { time: '10:00', title: null, color: 'var(--color-primary)' },
+  { time: '11:00', title: null, color: 'var(--color-primary)' },
+  { time: '12:00', title: null, color: 'var(--color-warning)' },
+  { time: '13:00', title: null, color: 'var(--color-accent)' },
+  { time: '14:00', title: null, color: 'var(--color-primary)' },
+  { time: '15:00', title: null, color: 'var(--color-primary)' },
+  { time: '16:00', title: null, color: 'var(--color-primary)' },
+  { time: '17:00', title: null, color: 'var(--color-accent)' },
+  { time: '18:00', title: null, color: 'var(--color-primary)' },
 ];
 
 export default function CalendarPage() {
@@ -42,6 +42,7 @@ export default function CalendarPage() {
   const saveSlots = (updated) => {
     setSlots(updated);
     localStorage.setItem('my_planner_schedule_slots', JSON.stringify(updated));
+    window.dispatchEvent(new Event('schedule-slots-changed'));
   };
 
   useEffect(() => {
