@@ -173,11 +173,11 @@ export default function Sidebar() {
             <button
               className="sidebar-auth-btn"
               onClick={() => setAuthModalOpen(true)}
-              title={isConfigured ? 'Sign in' : 'Setup Firebase'}
+              title="Sign in or create account"
             >
               <span aria-hidden="true">👤</span>
               <span className="sidebar-auth-btn-text">
-                {isConfigured ? 'Sign in' : 'Connect Account'}
+                Sign In / Register
               </span>
             </button>
           )}

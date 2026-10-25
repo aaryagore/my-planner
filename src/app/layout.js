@@ -1,6 +1,6 @@
 import './globals.css';
-import Sidebar from '@/components/Sidebar';
 import Providers from '@/components/Providers';
+import AppShell from '@/components/AppShell';
 
 export const metadata = {
   title: 'My Planner — Stay Organized, Stay Calm',
@@ -13,14 +13,7 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <body>
         <Providers>
-          <div className="app-layout">
-            <Sidebar />
-            <main className="main-content">
-              <div className="page-container">
-                {children}
-              </div>
-            </main>
-          </div>
+          <AppShell>{children}</AppShell>
         </Providers>
       </body>
     </html>
