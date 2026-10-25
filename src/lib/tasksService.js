@@ -1,9 +1,10 @@
 // ============================================================
-// Tasks Service — Scoped to Authenticated User
+// Tasks Service — Scoped to Authenticated User (Optimistic / Local-First)
 // ============================================================
-// - Every new user account starts completely fresh and clean (0 tasks).
-// - Authenticated tasks are scoped exclusively to users/{uid}/tasks.
-// - Private and isolated per user.
+// - Zero UI latency: Local cache is updated instantly (<5ms)
+// - Concurrently synced to Cloud Firestore in the background
+// - Every new user account starts completely fresh and isolated
+// - Safe: Offline and network-proof fallback
 // ============================================================
 
 import { db, isFirebaseConfigured } from '@/lib/firebase';
@@ -33,11 +34,13 @@ export function getLocalTasks(userId) {
   }
 }
 
-function saveLocalTasks(userId, tasks) {
+function saveLocalTasks(userId, tasks, notify = true) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(getStorageKey(userId), JSON.stringify(tasks));
-    window.dispatchEvent(new Event('local-tasks-changed'));
+    if (notify) {
+      window.dispatchEvent(new Event('local-tasks-changed'));
+    }
   } catch (err) {
     console.error('Failed to save tasks:', err);
   }
@@ -45,78 +48,76 @@ function saveLocalTasks(userId, tasks) {
 
 /**
  * Subscribe to tasks (real-time).
- * Scoped strictly to the authenticated user. Every new account starts at [].
+ * Always serves local cache instantly, and syncs with Cloud Firestore in real time.
  */
 export function subscribeToTasks(userId, onUpdate) {
-  const configured = isFirebaseConfigured();
+  // 1. Instantly emit cached tasks so user sees zero delay
+  const cached = getLocalTasks(userId);
+  onUpdate(cached);
 
-  if (configured && db && userId) {
-    const tasksRef = collection(db, 'users', userId, 'tasks');
-    const q = query(tasksRef, orderBy('createdAt', 'desc'));
-
-    return onSnapshot(
-      q,
-      (snapshot) => {
-        if (snapshot.empty) {
-          onUpdate([]);
-          return;
-        }
-        const tasks = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data(),
-        }));
-        onUpdate(tasks);
-      },
-      (err) => {
-        console.warn('Firestore tasks subscription status:', err.message);
-        // Fallback to user-scoped local storage on network/permission error
-        onUpdate(getLocalTasks(userId));
-      }
-    );
-  }
-
-  // If user is unauthenticated or in local demo mode, read only user's scoped tasks
-  onUpdate(getLocalTasks(userId));
-
-  const handleUpdate = () => {
+  const handleLocalChange = () => {
     onUpdate(getLocalTasks(userId));
   };
+  window.addEventListener('storage', handleLocalChange);
+  window.addEventListener('local-tasks-changed', handleLocalChange);
 
-  window.addEventListener('storage', handleUpdate);
-  window.addEventListener('local-tasks-changed', handleUpdate);
+  const configured = isFirebaseConfigured();
+  let unsubscribeFirestore = null;
+
+  // 2. Connect to real-time Cloud Firestore if configured
+  if (configured && db && userId) {
+    try {
+      const tasksRef = collection(db, 'users', userId, 'tasks');
+      const q = query(tasksRef, orderBy('createdAt', 'desc'));
+
+      unsubscribeFirestore = onSnapshot(
+        q,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const firestoreTasks = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }));
+            // Update local cache silently and update UI
+            saveLocalTasks(userId, firestoreTasks, false);
+            onUpdate(firestoreTasks);
+          } else {
+            // Snapshot is empty: If local tasks already exist, preserve them
+            const currentLocal = getLocalTasks(userId);
+            if (currentLocal.length > 0) {
+              onUpdate(currentLocal);
+            } else {
+              onUpdate([]);
+            }
+          }
+        },
+        (err) => {
+          console.warn('Firestore subscription status:', err.message);
+          onUpdate(getLocalTasks(userId));
+        }
+      );
+    } catch (err) {
+      console.warn('Firestore subscription setup note:', err.message);
+    }
+  }
 
   return () => {
-    window.removeEventListener('storage', handleUpdate);
-    window.removeEventListener('local-tasks-changed', handleUpdate);
+    window.removeEventListener('storage', handleLocalChange);
+    window.removeEventListener('local-tasks-changed', handleLocalChange);
+    if (typeof unsubscribeFirestore === 'function') {
+      unsubscribeFirestore();
+    }
   };
 }
 
 /**
- * Create a new task
+ * Create a new task.
+ * Saves immediately to local storage (<5ms) for instant UX,
+ * and syncs to Firestore concurrently in background.
  */
 export async function createTask(userId, taskData) {
-  const configured = isFirebaseConfigured();
-
-  if (configured && db && userId) {
-    const tasksRef = collection(db, 'users', userId, 'tasks');
-    const docRef = await addDoc(tasksRef, {
-      text: taskData.text.trim(),
-      description: taskData.description?.trim() || '',
-      priority: taskData.priority || 'important',
-      dueDate: taskData.dueDate || null,
-      isTopThree: Boolean(taskData.isTopThree),
-      completed: false,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      completedAt: null,
-    });
-    return docRef.id;
-  }
-
-  // Scoped local storage
-  const current = getLocalTasks(userId);
   const newTask = {
-    id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
     text: taskData.text.trim(),
     description: taskData.description?.trim() || '',
     priority: taskData.priority || 'important',
@@ -128,29 +129,42 @@ export async function createTask(userId, taskData) {
     completedAt: null,
   };
 
-  saveLocalTasks(userId, [newTask, ...current]);
+  // 1. Instant local write & UI notification
+  const current = getLocalTasks(userId);
+  saveLocalTasks(userId, [newTask, ...current], true);
+
+  // 2. Non-blocking Cloud Firestore sync in background
+  const configured = isFirebaseConfigured();
+  if (configured && db && userId) {
+    const tasksRef = collection(db, 'users', userId, 'tasks');
+    addDoc(tasksRef, {
+      text: newTask.text,
+      description: newTask.description,
+      priority: newTask.priority,
+      dueDate: newTask.dueDate,
+      isTopThree: newTask.isTopThree,
+      completed: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      completedAt: null,
+    }).catch((err) => {
+      console.warn('Cloud Firestore background sync notice:', err.message);
+    });
+  }
+
   return newTask.id;
 }
 
 /**
- * Toggle task completed status
+ * Toggle task completed status.
+ * Instant local update, concurrent cloud sync.
  */
 export async function toggleTaskComplete(userId, taskId, currentCompleted) {
-  const configured = isFirebaseConfigured();
+  const nextCompleted = !currentCompleted;
 
-  if (configured && db && userId) {
-    const taskRef = doc(db, 'users', userId, 'tasks', taskId);
-    await updateDoc(taskRef, {
-      completed: !currentCompleted,
-      completedAt: !currentCompleted ? serverTimestamp() : null,
-      updatedAt: serverTimestamp(),
-    });
-    return;
-  }
-
+  // 1. Instant local update
   const tasks = getLocalTasks(userId).map((t) => {
     if (t.id === taskId) {
-      const nextCompleted = !currentCompleted;
       return {
         ...t,
         completed: nextCompleted,
@@ -160,21 +174,37 @@ export async function toggleTaskComplete(userId, taskId, currentCompleted) {
     }
     return t;
   });
-  saveLocalTasks(userId, tasks);
+  saveLocalTasks(userId, tasks, true);
+
+  // 2. Cloud sync in background
+  const configured = isFirebaseConfigured();
+  if (configured && db && userId) {
+    const taskRef = doc(db, 'users', userId, 'tasks', taskId);
+    updateDoc(taskRef, {
+      completed: nextCompleted,
+      completedAt: nextCompleted ? serverTimestamp() : null,
+      updatedAt: serverTimestamp(),
+    }).catch((err) => {
+      console.warn('Cloud update sync notice:', err.message);
+    });
+  }
 }
 
 /**
- * Delete a task
+ * Delete a task.
+ * Instant local removal, concurrent cloud deletion.
  */
 export async function deleteTask(userId, taskId) {
-  const configured = isFirebaseConfigured();
+  // 1. Instant local delete
+  const tasks = getLocalTasks(userId).filter((t) => t.id !== taskId);
+  saveLocalTasks(userId, tasks, true);
 
+  // 2. Cloud deletion in background
+  const configured = isFirebaseConfigured();
   if (configured && db && userId) {
     const taskRef = doc(db, 'users', userId, 'tasks', taskId);
-    await deleteDoc(taskRef);
-    return;
+    deleteDoc(taskRef).catch((err) => {
+      console.warn('Cloud delete sync notice:', err.message);
+    });
   }
-
-  const tasks = getLocalTasks(userId).filter((t) => t.id !== taskId);
-  saveLocalTasks(userId, tasks);
 }

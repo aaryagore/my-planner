@@ -59,6 +59,111 @@
   box-shadow: var(--shadow-xs);
 }
 
+/* Duration presets and custom adjustments */
+.timer-duration-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.duration-chip {
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.duration-chip:hover {
+  border-color: var(--color-primary);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.duration-chip.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px var(--color-primary-glow);
+}
+
+/* Expandable custom duration stepper */
+.custom-duration-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--bg-input);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-medium);
+  margin-bottom: var(--space-4);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.custom-duration-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.custom-step-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-medium);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.custom-step-btn:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.custom-duration-input {
+  width: 55px;
+  text-align: center;
+  background: transparent;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.custom-duration-set-btn {
+  padding: 0.25rem 0.65rem;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.custom-duration-set-btn:hover {
+  opacity: 0.9;
+}
+
 /* Timer display ring */
 .timer-circle-wrapper {
   position: relative;
@@ -158,13 +263,15 @@
 }
 
 .timer-action-btn {
-  width: 44px;
+  min-width: 44px;
   height: 44px;
+  padding: 0 var(--space-2);
   border-radius: var(--radius-full);
   border: 1.5px solid var(--border-medium);
   background: var(--bg-card);
   color: var(--text-secondary);
-  font-size: 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -172,9 +279,15 @@
   transition: all var(--transition-fast);
 }
 
-.timer-action-btn:hover {
+.timer-action-btn:hover:not(:disabled) {
   background: var(--bg-input);
   color: var(--text-primary);
+  border-color: var(--color-primary);
+}
+
+.timer-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Side panel: session log */

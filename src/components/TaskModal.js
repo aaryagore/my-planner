@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { createTask } from '@/lib/tasksService';
 import './TaskModal.css';
@@ -20,35 +20,55 @@ export default function TaskModal({
   const [isTopThree, setIsTopThree] = useState(initialIsTopThree);
   const [submitting, setSubmitting] = useState(false);
 
+  // Helper to cleanly reset all modal inputs
+  const resetForm = useCallback(() => {
+    setText('');
+    setDescription('');
+    setPriority(initialPriority || 'important');
+    setDueDate('');
+    setIsTopThree(Boolean(initialIsTopThree));
+    setSubmitting(false);
+  }, [initialPriority, initialIsTopThree]);
+
+  // Always reset fields to fresh state every time the modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen, resetForm]);
+
   if (!isOpen) return null;
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    const trimmedText = text.trim();
+    if (!trimmedText || submitting) return;
 
     setSubmitting(true);
+
+    const taskPayload = {
+      text: trimmedText,
+      description: description.trim(),
+      priority,
+      dueDate: dueDate || null,
+      isTopThree,
+    };
+
+    // Instant UI close & clean reset — never leave old data or a stuck spinner
+    resetForm();
+    if (onTaskCreated) onTaskCreated();
+    onClose();
+
+    // Trigger save (instant in local cache, background in cloud)
     try {
-      await createTask(user?.uid, {
-        text,
-        description,
-        priority,
-        dueDate: dueDate || null,
-        isTopThree,
-      });
-
-      // Reset
-      setText('');
-      setDescription('');
-      setPriority('important');
-      setDueDate('');
-      setIsTopThree(false);
-
-      if (onTaskCreated) onTaskCreated();
-      onClose();
+      await createTask(user?.uid, taskPayload);
     } catch (err) {
       console.error('Failed to create task:', err);
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -56,7 +76,7 @@ export default function TaskModal({
     <div
       className="task-modal-backdrop"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) handleClose();
       }}
       role="dialog"
       aria-modal="true"
@@ -68,7 +88,7 @@ export default function TaskModal({
           </h2>
           <button
             className="task-modal-close"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Close"
           >
             ✕
@@ -153,7 +173,7 @@ export default function TaskModal({
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={onClose}
+              onClick={handleClose}
             >
               Cancel
             </button>
@@ -162,7 +182,7 @@ export default function TaskModal({
               className="btn btn-primary"
               disabled={submitting || !text.trim()}
             >
-              {submitting ? 'Saving...' : '＋ Add Task'}
+              {submitting ? 'Adding...' : '＋ Add Task'}
             </button>
           </div>
         </form>
