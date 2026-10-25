@@ -571,3 +571,26 @@ img { max-width: 100%; display: block; }
 @media (max-width: 600px) {
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
 }
+
+/* ---------- Clickable Inline Task Links ---------- */
+.task-inline-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-decoration-color: hsla(234, 68%, 55%, 0.45);
+  text-underline-offset: 3px;
+  word-break: break-all;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.task-inline-link:hover {
+  color: var(--color-primary-dark);
+  text-decoration-color: var(--color-primary-dark);
+  filter: brightness(1.2);
+}
+
+.is-completed .task-inline-link {
+  color: var(--text-tertiary);
+  text-decoration-color: var(--border-medium);
+}

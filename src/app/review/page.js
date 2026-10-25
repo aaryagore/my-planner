@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { subscribeToTasks } from '@/lib/tasksService';
 import { subscribeToHabits } from '@/lib/habitsService';
+import LinkifiedText from '@/components/LinkifiedText';
 
 export default function ReviewPage() {
   const { user } = useAuth();
@@ -149,7 +150,7 @@ export default function ReviewPage() {
                 >
                   <span style={{ color: 'var(--color-success)', fontWeight: 800 }}>✓</span>
                   <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', flex: 1 }}>
-                    {task.text}
+                    <LinkifiedText text={task.text} />
                   </span>
                   {task.priority && (
                     <span className="badge badge-accent" style={{ fontSize: '0.65rem' }}>

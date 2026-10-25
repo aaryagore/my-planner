@@ -8,6 +8,7 @@ import {
   deleteTask,
 } from '@/lib/tasksService';
 import TaskModal from '@/components/TaskModal';
+import LinkifiedText from '@/components/LinkifiedText';
 import './inbox.css';
 
 const priorityBadge = (p) => {
@@ -140,9 +141,13 @@ export default function InboxPage() {
               </button>
 
               <div className="task-details">
-                <div className="task-title">{task.text}</div>
+                <div className="task-title">
+                  <LinkifiedText text={task.text} />
+                </div>
                 {task.description && (
-                  <div className="task-note">{task.description}</div>
+                  <div className="task-note">
+                    <LinkifiedText text={task.description} />
+                  </div>
                 )}
                 <div className="task-meta-row">
                   {priorityBadge(task.priority)}

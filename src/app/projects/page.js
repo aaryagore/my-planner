@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { subscribeToTasks, createTask, toggleTaskComplete } from '@/lib/tasksService';
+import LinkifiedText from '@/components/LinkifiedText';
 import Link from 'next/link';
 
 const DEFAULT_PROJECTS = [
@@ -169,7 +170,7 @@ export default function ProjectsPage() {
                     color: task.completed ? 'var(--text-tertiary)' : 'var(--text-primary)',
                   }}
                 >
-                  {task.text}
+                  <LinkifiedText text={task.text} />
                 </span>
                 {task.priority && (
                   <span className={`badge badge-${task.priority === 'urgent' ? 'danger' : 'warning'}`}>

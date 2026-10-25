@@ -128,8 +128,35 @@
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   margin-top: var(--space-1);
-  line-height: 1.4;
+  line-height: 1.5;
   white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.task-note .task-inline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  word-break: break-all;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.task-note .task-inline-link::after {
+  content: '↗';
+  font-size: 0.85em;
+  opacity: 0.75;
+  text-decoration: none;
+  display: inline-block;
+  transition: transform var(--transition-fast);
+}
+
+.task-note .task-inline-link:hover::after {
+  transform: translate(2px, -2px);
+  opacity: 1;
 }
 
 .task-meta-row {

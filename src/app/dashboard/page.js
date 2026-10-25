@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { subscribeToTasks, toggleTaskComplete } from '@/lib/tasksService';
 import { subscribeToHabits } from '@/lib/habitsService';
 import TaskModal from '@/components/TaskModal';
+import LinkifiedText from '@/components/LinkifiedText';
 import './dashboard.css';
 
 /* ── Priority badge helper ───────────────────────────────── */
@@ -237,7 +238,9 @@ export default function DashboardPage() {
                   >
                     {i + 1}
                   </button>
-                  <span className="top-three-text">{item.text}</span>
+                  <span className="top-three-text">
+                    <LinkifiedText text={item.text} />
+                  </span>
                   <span className="top-three-badge">
                     {priorityBadge(item.priority)}
                   </span>
@@ -373,7 +376,9 @@ export default function DashboardPage() {
                           : 'var(--color-accent)',
                     }}
                   />
-                  <span className="upcoming-text">{item.text}</span>
+                  <span className="upcoming-text">
+                    <LinkifiedText text={item.text} />
+                  </span>
                   <span className="upcoming-date">{item.dueDate}</span>
                 </div>
               ))}
