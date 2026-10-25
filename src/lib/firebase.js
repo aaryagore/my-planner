@@ -11,7 +11,7 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -41,7 +41,16 @@ if (typeof window !== 'undefined' || isFirebaseConfigured()) {
     if (isFirebaseConfigured()) {
       app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
       auth = getAuth(app);
-      db = getFirestore(app);
+      
+      // Use long-polling to prevent WebChannel 10s connection timeouts
+      try {
+        db = initializeFirestore(app, {
+          experimentalForceLongPolling: true,
+        });
+      } catch {
+        db = getFirestore(app);
+      }
+
       googleProvider = new GoogleAuthProvider();
       // Enforce account chooser prompt on Google sign-in
       googleProvider.setCustomParameters({ prompt: 'select_account' });
