@@ -200,6 +200,27 @@ export default function FocusPage() {
 
   const totalFocusMinutes = completedSessions.reduce((acc, s) => acc + (s.durationMins || 25), 0);
 
+  const deleteSession = (sessionId) => {
+    const updated = completedSessions.filter((s) => s.id !== sessionId);
+    setCompletedSessions(updated);
+    try {
+      localStorage.setItem(focusStorageKey, JSON.stringify(updated));
+      window.dispatchEvent(new Event('focus-sessions-changed'));
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const clearAllSessions = () => {
+    setCompletedSessions([]);
+    try {
+      localStorage.removeItem(focusStorageKey);
+      window.dispatchEvent(new Event('focus-sessions-changed'));
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="page-header">
@@ -431,6 +452,17 @@ export default function FocusPage() {
                 <span className="card-title-icon">📜</span>
                 Recent Sessions
               </h2>
+              {completedSessions.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={clearAllSessions}
+                  style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-danger)' }}
+                  title="Clear all recorded sessions"
+                >
+                  Clear all
+                </button>
+              )}
             </div>
             {completedSessions.length === 0 ? (
               <div className="empty-state" style={{ padding: 'var(--space-5)' }}>
@@ -440,7 +472,7 @@ export default function FocusPage() {
               </div>
             ) : (
               <div className="session-history-list">
-                {completedSessions.slice(0, 6).map((session) => (
+                {completedSessions.slice(0, 10).map((session) => (
                   <div className="session-history-item" key={session.id}>
                     <div>
                       <div className="session-history-title">{session.taskTitle}</div>
@@ -448,7 +480,18 @@ export default function FocusPage() {
                         {session.durationMins || 25} minutes
                       </div>
                     </div>
-                    <div className="session-history-time">{session.timestamp}</div>
+                    <div className="session-history-meta">
+                      <span className="session-history-time">{session.timestamp}</span>
+                      <button
+                        type="button"
+                        className="session-delete-btn"
+                        onClick={() => deleteSession(session.id)}
+                        title="Delete session"
+                        aria-label="Delete this session"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
