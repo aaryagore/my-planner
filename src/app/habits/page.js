@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import {
   subscribeToHabits,
@@ -28,8 +28,23 @@ export default function HabitsPage() {
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('🏃');
   const [target, setTarget] = useState(3);
-  const [color, setColor] = useState('var(--color-accent)');
+  const [color, setColor] = useState('var(--color-primary)');
   const [submitting, setSubmitting] = useState(false);
+
+  const resetForm = useCallback(() => {
+    setName('');
+    setIcon('🏃');
+    setTarget(3);
+    setColor('var(--color-primary)');
+    setSubmitting(false);
+  }, []);
+
+  // Clean form every time modal opens
+  useEffect(() => {
+    if (showAddModal) {
+      resetForm();
+    }
+  }, [showAddModal, resetForm]);
 
   useEffect(() => {
     const unsubscribe = subscribeToHabits(user?.uid, (allHabits) => {
@@ -41,21 +56,32 @@ export default function HabitsPage() {
     };
   }, [user?.uid]);
 
+  const handleCloseModal = () => {
+    resetForm();
+    setShowAddModal(false);
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    const trimmed = name.trim();
+    if (!trimmed || submitting) return;
 
     setSubmitting(true);
+    const payload = {
+      name: trimmed,
+      icon,
+      target: Number(target) || 3,
+      color,
+    };
+
+    // Instant UI close & clean reset
+    resetForm();
+    setShowAddModal(false);
+
     try {
-      await createHabit(user?.uid, { name, icon, target, color });
-      setName('');
-      setIcon('🏃');
-      setTarget(3);
-      setShowAddModal(false);
+      await createHabit(user?.uid, payload);
     } catch (err) {
       console.error('Failed to create habit:', err);
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -181,7 +207,7 @@ export default function HabitsPage() {
         <div
           className="task-modal-backdrop"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setShowAddModal(false);
+            if (e.target === e.currentTarget) handleCloseModal();
           }}
         >
           <div className="task-modal-dialog">
@@ -191,7 +217,7 @@ export default function HabitsPage() {
               </h2>
               <button
                 className="task-modal-close"
-                onClick={() => setShowAddModal(false)}
+                onClick={handleCloseModal}
               >
                 ✕
               </button>
@@ -275,7 +301,7 @@ export default function HabitsPage() {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={handleCloseModal}
                 >
                   Cancel
                 </button>
@@ -284,7 +310,7 @@ export default function HabitsPage() {
                   className="btn btn-primary"
                   disabled={submitting || !name.trim()}
                 >
-                  {submitting ? 'Saving...' : '＋ Create Habit'}
+                  {submitting ? 'Creating...' : '＋ Create Habit'}
                 </button>
               </div>
             </form>

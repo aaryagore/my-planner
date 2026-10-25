@@ -73,15 +73,18 @@
   border: none;
   color: var(--text-tertiary);
   cursor: pointer;
-  padding: var(--space-1);
-  font-size: 0.9rem;
-  opacity: 0.5;
+  padding: 6px 8px;
+  font-size: 1rem;
+  border-radius: var(--radius-sm);
+  opacity: 0.6;
   transition: all var(--transition-fast);
 }
 
 .habit-delete-btn:hover {
   opacity: 1;
   color: var(--color-danger);
+  background: var(--color-danger-ghost);
+  transform: scale(1.1);
 }
 
 /* Progress bar */
