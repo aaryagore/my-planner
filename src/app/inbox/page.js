@@ -7,139 +7,76 @@ import {
   toggleTaskComplete,
   deleteTask,
 } from '@/lib/tasksService';
+import VoiceTaskBar from '@/components/VoiceTaskBar';
 import TaskModal from '@/components/TaskModal';
 import LinkifiedText from '@/components/LinkifiedText';
 import './inbox.css';
 
 const PRIORITY_BADGE = {
-  urgent: { className: 'badge badge-danger', label: '🔴 Urgent' },
-  important: { className: 'badge badge-warning', label: '🟡 Important' },
-  optional: { className: 'badge badge-accent', label: '🔵 Optional' },
+  urgent: { className: 'badge-pill priority-high', label: 'Urgent' },
+  important: { className: 'badge-pill priority-normal', label: 'Normal' },
+  optional: { className: 'badge-pill priority-low', label: 'Optional' },
 };
 
-const CATEGORY_CONFIG = {
-  personal: {
-    key: 'personal',
-    label: 'Personal',
-    icon: '🏠',
-    className: 'category-chip personal',
-    badgeClass: 'personal-tag',
-  },
-  academic: {
-    key: 'academic',
-    label: 'Academic',
-    icon: '🎓',
-    className: 'category-chip academic',
-    badgeClass: 'academic-tag',
-  },
-};
-
-function PriorityBadge({ priority }) {
-  const b = PRIORITY_BADGE[priority] || PRIORITY_BADGE.important;
-  return <span className={b.className}>{b.label}</span>;
-}
-
-function TaskItem({ task, onToggle, onDelete }) {
-  const cat = CATEGORY_CONFIG[task.category] || CATEGORY_CONFIG.personal;
+function TaskRow({ task, onToggle, onDelete }) {
+  const p = PRIORITY_BADGE[task.priority] || PRIORITY_BADGE.important;
+  const isAcademic = task.category === 'academic';
 
   return (
-    <div className={`task-item ${task.category === 'academic' ? 'task-academic' : 'task-personal'} ${task.completed ? 'is-completed' : ''}`}>
+    <div
+      className={`task-row ${task.completed ? 'is-completed' : ''} ${
+        isAcademic ? 'row-academic' : 'row-personal'
+      }`}
+    >
       <button
         type="button"
-        className={`task-checkbox-btn ${task.completed ? 'checked' : ''}`}
+        className={`task-row-checkbox ${task.completed ? 'checked' : ''}`}
         onClick={onToggle}
-        title={task.completed ? 'Mark incomplete' : 'Mark completed'}
-        aria-label="Toggle task completion"
+        aria-label={task.completed ? 'Mark task incomplete' : 'Mark task complete'}
       >
         {task.completed && '✓'}
       </button>
 
-      <div className="task-details">
-        <div className="task-title">
+      <div className="task-row-content">
+        <div className="task-row-title">
           <LinkifiedText text={task.text} />
         </div>
         {task.description && (
-          <div className="task-note">
+          <div className="task-row-note">
             <LinkifiedText text={task.description} />
           </div>
         )}
-        <div className="task-meta-row">
-          <span className={cat.className}>
-            {cat.icon} {cat.label}
+        <div className="task-row-meta">
+          <span className={`badge-pill ${isAcademic ? 'academic' : 'personal'}`}>
+            {isAcademic ? 'Academic' : 'Personal'}
           </span>
-          <PriorityBadge priority={task.priority} />
-          {task.isTopThree && <span className="task-pin-badge">⭐ Top 3</span>}
-          {task.dueDate && <span className="task-due-badge">📅 {task.dueDate}</span>}
+          {task.priority === 'urgent' && <span className={p.className}>{p.label}</span>}
+          {task.isTopThree && <span className="badge-pill top-three">Top 3</span>}
+          {task.dueDate && <span className="badge-pill due">Due {task.dueDate}</span>}
         </div>
       </div>
 
       <button
         type="button"
-        className="task-delete-btn"
+        className="task-row-delete"
         onClick={onDelete}
         title="Delete task"
         aria-label="Delete task"
       >
-        🗑️
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
       </button>
-    </div>
-  );
-}
-
-function CategorySection({ config, tasks, onAddTask, user }) {
-  return (
-    <div className={`category-section-card ${config.key}`}>
-      <div className="category-section-header">
-        <div className="category-section-title-wrap">
-          <span className="category-section-icon">{config.icon}</span>
-          <div>
-            <h2 className="category-section-title">{config.label}</h2>
-            <span className="category-section-subtitle">
-              {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
-            </span>
-          </div>
-        </div>
-        <button
-          className={`btn-subtle-add ${config.key}`}
-          onClick={() => onAddTask(config.key)}
-          title={`Add ${config.label} task`}
-        >
-          ＋ Add {config.label}
-        </button>
-      </div>
-
-      {tasks.length === 0 ? (
-        <div className="category-empty-state">
-          <p className="category-empty-text">No active {config.label.toLowerCase()} tasks</p>
-          <button
-            type="button"
-            className="category-empty-btn"
-            onClick={() => onAddTask(config.key)}
-          >
-            ＋ Add {config.label} task
-          </button>
-        </div>
-      ) : (
-        <div className="tasks-container">
-          {tasks.map((task) => (
-            <TaskItem
-              key={task.id}
-              task={task}
-              onToggle={() => toggleTaskComplete(user?.uid, task.id, task.completed)}
-              onDelete={() => deleteTask(user?.uid, task.id)}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
 export default function InboxPage() {
-  const { user, isConfigured } = useAuth();
+  const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('active');
-  const [domainFilter, setDomainFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('active'); // active | top3 | completed | all
+  const [domainFilter, setDomainFilter] = useState('all'); // all | personal | academic
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalCategory, setModalCategory] = useState('personal');
 
@@ -152,11 +89,7 @@ export default function InboxPage() {
     };
   }, [user?.uid]);
 
-  const handleOpenModal = (category = 'personal') => {
-    setModalCategory(category);
-    setIsModalOpen(true);
-  };
-
+  // Status Filter
   const statusFiltered = tasks.filter((t) => {
     if (statusFilter === 'active') return !t.completed;
     if (statusFilter === 'completed') return t.completed;
@@ -164,94 +97,113 @@ export default function InboxPage() {
     return true;
   });
 
-  const filteredTasks = domainFilter === 'all'
-    ? statusFiltered
-    : statusFiltered.filter((t) => (t.category || 'personal') === domainFilter);
+  // Domain Filter
+  const filteredTasks =
+    domainFilter === 'all'
+      ? statusFiltered
+      : statusFiltered.filter((t) => (t.category || 'personal') === domainFilter);
 
-  const activeTasks = tasks.filter((t) => !t.completed);
-  const activePersonal = activeTasks.filter((t) => (t.category || 'personal') === 'personal').length;
-  const activeAcademic = activeTasks.filter((t) => (t.category || 'personal') === 'academic').length;
+  const activeCount = tasks.filter((t) => !t.completed).length;
+  const personalActive = tasks.filter((t) => !t.completed && (t.category || 'personal') === 'personal').length;
+  const academicActive = tasks.filter((t) => !t.completed && (t.category || 'personal') === 'academic').length;
+  const top3Count = tasks.filter((t) => !t.completed && t.isTopThree).length;
   const completedCount = tasks.filter((t) => t.completed).length;
 
-  const personalTasks = statusFiltered.filter((t) => (t.category || 'personal') === 'personal');
-  const academicTasks = statusFiltered.filter((t) => (t.category || 'personal') === 'academic');
+  const showGrouped = domainFilter === 'all' && statusFilter === 'active';
+  const personalTasks = showGrouped
+    ? filteredTasks.filter((t) => (t.category || 'personal') === 'personal')
+    : [];
+  const academicTasks = showGrouped
+    ? filteredTasks.filter((t) => (t.category || 'personal') === 'academic')
+    : [];
 
-  const isGroupedView = domainFilter === 'all' && statusFilter !== 'completed';
+  const handleOpenDetailedModal = (cat = 'personal') => {
+    setModalCategory(cat);
+    setIsModalOpen(true);
+  };
 
   return (
-    <div className="animate-fade-in inbox-page">
-      <div className="page-header">
+    <div className="animate-fade-in inbox-page-calm">
+      {/* Page Header */}
+      <div className="inbox-header-row">
         <div>
-          <h1 className="page-title">📥 Task Management</h1>
-          <p className="page-subtitle">
-            <span className="summary-pill personal-pill">🏠 {activePersonal} Personal</span>
-            <span className="summary-separator">•</span>
-            <span className="summary-pill academic-pill">🎓 {activeAcademic} Academic</span>
-            {!isConfigured && <span className="demo-badge">Demo Mode</span>}
+          <h1 className="inbox-title">Inbox</h1>
+          <p className="inbox-subtitle">
+            {activeCount === 0
+              ? 'All tasks completed'
+              : `${personalActive} personal · ${academicActive} academic active`}
           </p>
         </div>
-        <div className="header-action-group">
-          <button
-            className="btn btn-outline"
-            onClick={() => handleOpenModal('academic')}
-          >
-            🎓 + Academic
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => handleOpenModal(domainFilter === 'academic' ? 'academic' : 'personal')}
-          >
-            ＋ Quick Capture
-          </button>
-        </div>
+        <button
+          type="button"
+          className="btn-detailed-add"
+          onClick={() => handleOpenDetailedModal(domainFilter === 'academic' ? 'academic' : 'personal')}
+        >
+          + Detailed task
+        </button>
       </div>
 
-      <div className="inbox-controls-wrapper">
-        <div className="domain-switcher">
+      {/* Prominent Voice & Quick Text Bar */}
+      <section className="inbox-quick-bar" aria-label="Add task by voice or text">
+        <VoiceTaskBar
+          placeholder="Type a task or click Add task by voice..."
+          onTaskCreated={() => {}}
+        />
+      </section>
+
+      {/* Scannable Filters */}
+      <div className="inbox-filter-bar">
+        {/* Domain Tabs */}
+        <div className="domain-pill-group" role="tablist" aria-label="Filter by domain">
           <button
-            className={`domain-tab ${domainFilter === 'all' ? 'active' : ''}`}
+            type="button"
+            className={`domain-pill ${domainFilter === 'all' ? 'active' : ''}`}
             onClick={() => setDomainFilter('all')}
           >
-            <span className="domain-tab-title">All Domains</span>
-            <span className="domain-tab-count">{statusFiltered.length}</span>
+            All
           </button>
           <button
-            className={`domain-tab personal ${domainFilter === 'personal' ? 'active' : ''}`}
+            type="button"
+            className={`domain-pill personal ${domainFilter === 'personal' ? 'active' : ''}`}
             onClick={() => setDomainFilter('personal')}
           >
-            <span className="domain-tab-title">🏠 Personal</span>
-            <span className="domain-tab-count">{personalTasks.length}</span>
+            Personal ({personalActive})
           </button>
           <button
-            className={`domain-tab academic ${domainFilter === 'academic' ? 'active' : ''}`}
+            type="button"
+            className={`domain-pill academic ${domainFilter === 'academic' ? 'active' : ''}`}
             onClick={() => setDomainFilter('academic')}
           >
-            <span className="domain-tab-title">🎓 Academic</span>
-            <span className="domain-tab-count">{academicTasks.length}</span>
+            Academic ({academicActive})
           </button>
         </div>
 
-        <div className="filter-tabs">
+        {/* Status Tabs */}
+        <div className="status-pill-group" role="tablist" aria-label="Filter by status">
           <button
-            className={`filter-tab ${statusFilter === 'active' ? 'active' : ''}`}
+            type="button"
+            className={`status-pill ${statusFilter === 'active' ? 'active' : ''}`}
             onClick={() => setStatusFilter('active')}
           >
-            Active ({activeTasks.length})
+            Active ({activeCount})
           </button>
           <button
-            className={`filter-tab ${statusFilter === 'top3' ? 'active' : ''}`}
+            type="button"
+            className={`status-pill ${statusFilter === 'top3' ? 'active' : ''}`}
             onClick={() => setStatusFilter('top3')}
           >
-            ⭐ Top 3
+            Top 3 ({top3Count})
           </button>
           <button
-            className={`filter-tab ${statusFilter === 'completed' ? 'active' : ''}`}
+            type="button"
+            className={`status-pill ${statusFilter === 'completed' ? 'active' : ''}`}
             onClick={() => setStatusFilter('completed')}
           >
             Done ({completedCount})
           </button>
           <button
-            className={`filter-tab ${statusFilter === 'all' ? 'active' : ''}`}
+            type="button"
+            className={`status-pill ${statusFilter === 'all' ? 'active' : ''}`}
             onClick={() => setStatusFilter('all')}
           >
             All ({tasks.length})
@@ -259,72 +211,78 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {statusFiltered.length === 0 ? (
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-state-icon">📥</div>
-            <h3 className="empty-state-title">
-              {statusFilter === 'completed' ? 'No completed tasks yet' : 'No tasks in this view'}
-            </h3>
-            <p className="empty-state-text">
-              {statusFilter === 'completed'
-                ? 'Check off tasks as you finish them to see your completed archive.'
-                : 'Keep your personal life and academic deadlines organized.'}
-            </p>
-            <div className="empty-state-actions">
-              <button
-                className="btn btn-outline"
-                onClick={() => handleOpenModal('academic')}
-              >
-                🎓 Add Academic Task
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => handleOpenModal('personal')}
-              >
-                🏠 Add Personal Task
-              </button>
-            </div>
-          </div>
+      {/* Main Task List */}
+      {filteredTasks.length === 0 ? (
+        <div className="inbox-empty-card">
+          <p className="inbox-empty-title">
+            {statusFilter === 'completed' ? 'No completed tasks yet' : 'No tasks in this view'}
+          </p>
+          <p className="inbox-empty-hint">
+            Use the voice microphone above or type a quick note to add your next task.
+          </p>
         </div>
-      ) : isGroupedView ? (
-        <div className="domains-split-grid">
-          <CategorySection
-            config={CATEGORY_CONFIG.personal}
-            tasks={personalTasks}
-            onAddTask={handleOpenModal}
-            user={user}
-          />
-          <CategorySection
-            config={CATEGORY_CONFIG.academic}
-            tasks={academicTasks}
-            onAddTask={handleOpenModal}
-            user={user}
-          />
+      ) : showGrouped ? (
+        /* Dual-Domain Structured View */
+        <div className="inbox-domain-sections">
+          {/* Personal Section */}
+          <div className="domain-section-block">
+            <div className="domain-section-head">
+              <span className="domain-section-title">Personal</span>
+              <span className="domain-section-count">{personalTasks.length}</span>
+            </div>
+            {personalTasks.length === 0 ? (
+              <div className="domain-empty-row">No active personal tasks</div>
+            ) : (
+              <div className="compact-task-container">
+                {personalTasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onToggle={() => toggleTaskComplete(user?.uid, task.id, task.completed)}
+                    onDelete={() => deleteTask(user?.uid, task.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Academic Section */}
+          <div className="domain-section-block">
+            <div className="domain-section-head">
+              <span className="domain-section-title">Academic</span>
+              <span className="domain-section-count">{academicTasks.length}</span>
+            </div>
+            {academicTasks.length === 0 ? (
+              <div className="domain-empty-row">No active academic tasks</div>
+            ) : (
+              <div className="compact-task-container">
+                {academicTasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onToggle={() => toggleTaskComplete(user?.uid, task.id, task.completed)}
+                    onDelete={() => deleteTask(user?.uid, task.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       ) : (
-        <div className="card filtered-list-card">
-          <div className="filtered-list-header">
-            <span className="filtered-list-title">
-              {domainFilter === 'personal' && '🏠 Personal Tasks'}
-              {domainFilter === 'academic' && '🎓 Academic Tasks'}
-              {domainFilter === 'all' && statusFilter === 'completed' && '✓ Completed Archive'}
-            </span>
-            <span className="filtered-list-badge">{filteredTasks.length}</span>
-          </div>
-          <div className="tasks-container">
-            {filteredTasks.map((task) => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                onToggle={() => toggleTaskComplete(user?.uid, task.id, task.completed)}
-                onDelete={() => deleteTask(user?.uid, task.id)}
-              />
-            ))}
-          </div>
+        /* Unified Compact List */
+        <div className="compact-task-container card">
+          {filteredTasks.map((task) => (
+            <TaskRow
+              key={task.id}
+              task={task}
+              onToggle={() => toggleTaskComplete(user?.uid, task.id, task.completed)}
+              onDelete={() => deleteTask(user?.uid, task.id)}
+            />
+          ))}
         </div>
       )}
 
+      {/* Task Modal for advanced options */}
       <TaskModal
         isOpen={isModalOpen}
         initialCategory={modalCategory}

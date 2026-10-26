@@ -1,39 +1,32 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { subscribeToTasks, toggleTaskComplete } from '@/lib/tasksService';
 import { subscribeToHabits } from '@/lib/habitsService';
+import VoiceTaskBar from '@/components/VoiceTaskBar';
 import TaskModal from '@/components/TaskModal';
 import LinkifiedText from '@/components/LinkifiedText';
 import './dashboard.css';
 
-/* ── Priority badge helper ───────────────────────────────── */
-const priorityBadge = (p) => {
-  const map = {
-    urgent:    { className: 'badge badge-danger',  label: 'Urgent' },
-    important: { className: 'badge badge-warning', label: 'Important' },
-    optional:  { className: 'badge badge-accent',  label: 'Optional' },
-  };
-  const b = map[p] || map.important;
-  return <span className={b.className}>{b.label}</span>;
-};
-
 export default function DashboardPage() {
-  const { user, isConfigured } = useAuth();
+  const { user } = useAuth();
   const [greeting, setGreeting] = useState('');
   const [dateStr, setDateStr] = useState('');
   const [tasks, setTasks] = useState([]);
   const [habits, setHabits] = useState([]);
-  const [scheduleSlots, setScheduleSlots] = useState([]);
+  const [scheduleBlocks, setScheduleBlocks] = useState([]);
   const [focusTimeMins, setFocusTimeMins] = useState(0);
+  const [currentHour, setCurrentHour] = useState(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [modalCategory, setModalCategory] = useState('personal');
 
-  // Greet user based on client time
+  // Friendly date and greeting
   useEffect(() => {
     const now = new Date();
     const h = now.getHours();
+    setCurrentHour(h);
     if (h < 12) setGreeting('Good morning');
     else if (h < 17) setGreeting('Good afternoon');
     else setGreeting('Good evening');
@@ -41,14 +34,13 @@ export default function DashboardPage() {
     setDateStr(
       now.toLocaleDateString('en-US', {
         weekday: 'long',
-        month: 'long',
+        month: 'short',
         day: 'numeric',
-        year: 'numeric',
       })
     );
   }, []);
 
-  // Subscribe to real tasks
+  // Subscribe to tasks
   useEffect(() => {
     const unsubscribe = subscribeToTasks(user?.uid, (allTasks) => {
       setTasks(allTasks);
@@ -58,7 +50,7 @@ export default function DashboardPage() {
     };
   }, [user?.uid]);
 
-  // Subscribe to real habits
+  // Subscribe to habits
   useEffect(() => {
     const unsubscribe = subscribeToHabits(user?.uid, (allHabits) => {
       setHabits(allHabits);
@@ -68,32 +60,25 @@ export default function DashboardPage() {
     };
   }, [user?.uid]);
 
-  // Read schedule slots (scoped to active user)
+  // Read calendar blocks (for next scheduled item)
   useEffect(() => {
-    // Purge any old legacy keys from previous steps
-    try {
-      localStorage.removeItem('my_planner_schedule_slots');
-      localStorage.removeItem('my_planner_demo_habits');
-      localStorage.removeItem('my_planner_demo_tasks');
-    } catch {}
-
-    const key = `my_planner_schedule_${user?.uid || 'guest'}`;
-    const loadSchedule = () => {
+    const storageKey = 'my_planner_blocks_v2_' + (user?.uid || 'guest');
+    const loadBlocks = () => {
       try {
-        const raw = localStorage.getItem(key);
-        if (raw) setScheduleSlots(JSON.parse(raw));
-        else setScheduleSlots([]);
-      } catch (e) {
-        setScheduleSlots([]);
+        const saved = localStorage.getItem(storageKey);
+        if (saved) setScheduleBlocks(JSON.parse(saved));
+        else setScheduleBlocks([]);
+      } catch {
+        setScheduleBlocks([]);
       }
     };
 
-    loadSchedule();
-    window.addEventListener('schedule-slots-changed', loadSchedule);
-    return () => window.removeEventListener('schedule-slots-changed', loadSchedule);
+    loadBlocks();
+    window.addEventListener('schedule-slots-changed', loadBlocks);
+    return () => window.removeEventListener('schedule-slots-changed', loadBlocks);
   }, [user?.uid]);
 
-  // Read focus sessions (scoped to active user)
+  // Read focus minutes
   useEffect(() => {
     const key = `my_planner_focus_${user?.uid || 'guest'}`;
     const loadFocus = () => {
@@ -106,7 +91,7 @@ export default function DashboardPage() {
         } else {
           setFocusTimeMins(0);
         }
-      } catch (e) {
+      } catch {
         setFocusTimeMins(0);
       }
     };
@@ -116,15 +101,54 @@ export default function DashboardPage() {
     return () => window.removeEventListener('focus-sessions-changed', loadFocus);
   }, [user?.uid]);
 
-  // Derived tasks & statistics
+  // Derived tasks
   const activeTasks = tasks.filter((t) => !t.completed);
   const completedTasks = tasks.filter((t) => t.completed);
-  const habitsAchieved = habits.filter((h) => h.done >= h.target).length;
+  const topThreeList = activeTasks.filter((t) => t.isTopThree);
+  const regularTasks = activeTasks.filter((t) => !t.isTopThree).slice(0, 5);
 
-  const topThreeList = activeTasks.filter((t) => t.isTopThree).slice(0, 3);
+  // Compute Next Scheduled Item from calendar blocks
+  const nextScheduledItem = useMemo(() => {
+    if (!scheduleBlocks || scheduleBlocks.length === 0) return null;
+    const hour = currentHour !== null ? currentHour : 9;
 
-  const scheduledBlocks = scheduleSlots.filter((s) => Boolean(s.title));
-  const upcomingDeadlines = tasks.filter((t) => Boolean(t.dueDate) && !t.completed);
+    // 1. Check if an item is happening right now
+    const currentBlock = scheduleBlocks.find(
+      (b) => b.startHour <= hour && hour < b.startHour + b.duration
+    );
+    if (currentBlock) {
+      return {
+        ...currentBlock,
+        isNow: true,
+        timeLabel: `${String(currentBlock.startHour).padStart(2, '0')}:00 - ${String(
+          currentBlock.startHour + currentBlock.duration
+        ).padStart(2, '0')}:00`,
+      };
+    }
+
+    // 2. Otherwise find next upcoming item today
+    const upcoming = scheduleBlocks
+      .filter((b) => b.startHour > hour)
+      .sort((a, b) => a.startHour - b.startHour)[0];
+
+    if (upcoming) {
+      return {
+        ...upcoming,
+        isNow: false,
+        timeLabel: `Starts at ${String(upcoming.startHour).padStart(2, '0')}:00`,
+      };
+    }
+
+    // 3. Fallback to first block of schedule
+    const first = [...scheduleBlocks].sort((a, b) => a.startHour - b.startHour)[0];
+    return {
+      ...first,
+      isNow: false,
+      timeLabel: `${String(first.startHour).padStart(2, '0')}:00 - ${String(
+        first.startHour + first.duration
+      ).padStart(2, '0')}:00`,
+    };
+  }, [scheduleBlocks]);
 
   const formatFocusTime = (mins) => {
     if (!mins || mins === 0) return '0m';
@@ -134,285 +158,243 @@ export default function DashboardPage() {
     return m > 0 ? `${h}h ${m}m` : `${h}h`;
   };
 
-  const userDisplayName = user?.displayName
+  const displayName = user?.displayName
     ? user.displayName.split(' ')[0]
     : user?.email
     ? user.email.split('@')[0]
-    : null;
+    : 'there';
 
   return (
-    <div className="animate-fade-in">
-      {/* Greeting */}
-      <div className="dashboard-greeting">
-        <h1>
-          {greeting ? `${greeting}${userDisplayName ? `, ${userDisplayName}` : ''}` : '\u00A0'}{' '}
-          <span className="wave">👋</span>
-        </h1>
-        <p>Here&apos;s your focus and schedule for today.</p>
-        <div className="dashboard-date">{dateStr || '\u00A0'}</div>
-      </div>
-
-      {/* Quick actions */}
-      <div className="quick-actions">
-        <button
-          className="quick-action-btn"
-          onClick={() => setIsTaskModalOpen(true)}
-        >
-          <span className="quick-action-icon">＋</span>
-          <span>Add task</span>
-        </button>
-        <Link href="/focus" className="quick-action-btn">
-          <span className="quick-action-icon">⏱</span>
-          <span>Start focus</span>
-        </Link>
-        <Link href="/inbox" className="quick-action-btn">
-          <span className="quick-action-icon">📥</span>
-          <span>Open inbox</span>
-        </Link>
-      </div>
-
-      {/* Real-Time Live Stats */}
-      <div className="stats-row">
-        <div className="stat-card">
-          <div className="stat-value">{activeTasks.length}</div>
-          <div className="stat-label">Active Tasks</div>
+    <div className="animate-fade-in dashboard-page">
+      {/* Calm Header */}
+      <div className="dashboard-header-simple">
+        <div>
+          <h1 className="dashboard-title">
+            {greeting}, {displayName}
+          </h1>
+          <p className="dashboard-date-label">{dateStr}</p>
         </div>
-        <div className="stat-card">
-          <div className="stat-value">{completedTasks.length}</div>
-          <div className="stat-label">Completed</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{formatFocusTime(focusTimeMins)}</div>
-          <div className="stat-label">Focus Time</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">
-            {habits.length > 0 ? `${habitsAchieved}/${habits.length}` : '0/0'}
-          </div>
-          <div className="stat-label">Habits Met</div>
+        <div className="dashboard-header-quick-links">
+          <Link href="/inbox" className="link-subtle">
+            All Tasks ({activeTasks.length})
+          </Link>
+          <Link href="/calendar" className="link-subtle">
+            View Schedule
+          </Link>
         </div>
       </div>
 
-      {/* Main grid */}
-      <div className="dashboard-grid">
-        {/* ── 1. Top 3 Priorities ── */}
-        <div className="card dashboard-card">
-          <div className="card-header">
-            <h2 className="card-title">
-              <span className="card-title-icon">⭐</span>
-              Today&apos;s Top 3
-            </h2>
-            <Link href="/inbox" className="btn btn-ghost">
-              View all
-            </Link>
-          </div>
+      {/* Prominent Voice & Quick Add Bar */}
+      <section className="dashboard-quick-add-section" aria-label="Quick add task">
+        <VoiceTaskBar
+          placeholder="Type a task or click Add task by voice..."
+          onTaskCreated={() => {}}
+        />
+      </section>
 
-          {topThreeList.length === 0 ? (
-            <div className="empty-state" style={{ padding: 'var(--space-5)' }}>
-              <p className="empty-state-text">
-                No active priorities right now. Add a task and pin it to your Top 3.
-              </p>
-              <button
-                className="btn btn-primary"
-                onClick={() => setIsTaskModalOpen(true)}
-              >
-                ＋ Add priority task
-              </button>
+      {/* Main Focus Grid */}
+      <div className="dashboard-focus-grid">
+        {/* Left Column: Today's Priorities & Active Tasks */}
+        <div className="dashboard-tasks-column">
+          {/* Top 3 Priorities Card */}
+          <div className="card calm-panel">
+            <div className="panel-header">
+              <div className="panel-title-group">
+                <span className="panel-bullet priority"></span>
+                <h2 className="panel-title">Today&apos;s Focus Priorities</h2>
+              </div>
+              <span className="panel-counter">
+                {topThreeList.length} of 3
+              </span>
             </div>
-          ) : (
-            <div className="top-three-list">
-              {topThreeList.map((item, i) => (
-                <div className="top-three-item" key={item.id}>
-                  <button
-                    type="button"
-                    className="top-three-number"
-                    onClick={() =>
-                      toggleTaskComplete(user?.uid, item.id, item.completed)
-                    }
-                    title="Click to mark completed"
-                    style={{ border: 'none', cursor: 'pointer' }}
-                  >
-                    {i + 1}
-                  </button>
-                  <span className="top-three-text">
-                    <LinkifiedText text={item.text} />
-                  </span>
-                  <span className="top-three-badge">
-                    <span
-                      style={{
-                        fontSize: '0.68rem',
-                        fontWeight: 700,
-                        padding: '1px 6px',
-                        borderRadius: 'var(--radius-full)',
-                        marginRight: '6px',
-                        background: (item.category || 'personal') === 'academic' ? 'var(--color-accent-ghost)' : 'var(--color-primary-ghost)',
-                        color: (item.category || 'personal') === 'academic' ? 'var(--color-accent)' : 'var(--color-primary)',
-                        border: `1px solid ${(item.category || 'personal') === 'academic' ? 'hsla(168, 60%, 42%, 0.2)' : 'hsla(234, 68%, 55%, 0.2)'}`,
-                      }}
+
+            {topThreeList.length === 0 ? (
+              <div className="panel-empty-simple">
+                <p>No high-priority tasks pinned for today.</p>
+                <button
+                  type="button"
+                  className="btn-link-action"
+                  onClick={() => {
+                    setModalCategory('personal');
+                    setIsTaskModalOpen(true);
+                  }}
+                >
+                  + Add priority task
+                </button>
+              </div>
+            ) : (
+              <div className="compact-task-list">
+                {topThreeList.map((task) => (
+                  <div key={task.id} className="compact-task-row priority">
+                    <button
+                      type="button"
+                      className={`compact-checkbox ${task.completed ? 'checked' : ''}`}
+                      onClick={() => toggleTaskComplete(user?.uid, task.id, task.completed)}
+                      aria-label="Mark task complete"
                     >
-                      {(item.category || 'personal') === 'academic' ? '🎓 Academic' : '🏠 Personal'}
-                    </span>
-                    {priorityBadge(item.priority)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── 2. Today's Schedule ── */}
-        <div className="card dashboard-card">
-          <div className="card-header">
-            <h2 className="card-title">
-              <span className="card-title-icon">🕐</span>
-              Today&apos;s Schedule
-            </h2>
-            <Link href="/calendar" className="btn btn-ghost">
-              Calendar
-            </Link>
-          </div>
-
-          {scheduledBlocks.length === 0 ? (
-            <div className="empty-state" style={{ padding: 'var(--space-5)' }}>
-              <p className="empty-state-text">
-                Your schedule is clear for today. Plan hours for deep work, classes, or breaks.
-              </p>
-              <Link href="/calendar" className="btn btn-primary">
-                ＋ Plan time blocks
-              </Link>
-            </div>
-          ) : (
-            <div className="time-blocks">
-              {scheduledBlocks.map((block, i) => (
-                <div className="time-block" key={i}>
-                  <div className="time-block-time">{block.time}</div>
-                  <div
-                    className="time-block-bar"
-                    style={{ background: block.color || 'var(--color-primary)' }}
-                  />
-                  <div className="time-block-content">
-                    <div className="time-block-title">{block.title}</div>
-                    <div className="time-block-meta">1h block</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── 3. Habits This Week ── */}
-        <div className="card dashboard-card">
-          <div className="card-header">
-            <h2 className="card-title">
-              <span className="card-title-icon">🎯</span>
-              Habits This Week
-            </h2>
-            <Link href="/habits" className="btn btn-ghost">
-              Manage
-            </Link>
-          </div>
-
-          {habits.length === 0 ? (
-            <div className="empty-state" style={{ padding: 'var(--space-5)' }}>
-              <p className="empty-state-text">
-                No habits tracked yet. Set your first weekly consistency target!
-              </p>
-              <Link href="/habits" className="btn btn-primary">
-                ＋ Add a habit
-              </Link>
-            </div>
-          ) : (
-            <div className="habits-mini">
-              {habits.slice(0, 4).map((habit) => (
-                <div className="habit-mini-item" key={habit.id}>
-                  <span className="habit-mini-icon">{habit.icon}</span>
-                  <div className="habit-mini-info">
-                    <div className="habit-mini-name">{habit.name}</div>
-                    <div className="habit-mini-progress">
-                      {habit.done}/{habit.target} this week
+                      {task.completed ? '✓' : ''}
+                    </button>
+                    <div className="compact-task-info">
+                      <span className="compact-task-text">
+                        <LinkifiedText text={task.text} />
+                      </span>
+                      <div className="compact-task-meta">
+                        <span className={`badge-pill ${task.category || 'personal'}`}>
+                          {task.category === 'academic' ? 'Academic' : 'Personal'}
+                        </span>
+                        {task.dueDate && (
+                          <span className="badge-pill due">Due {task.dueDate}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="habit-mini-bar-track">
-                    <div
-                      className="habit-mini-bar-fill"
-                      style={{
-                        width: `${Math.min((habit.done / habit.target) * 100, 100)}%`,
-                        background: habit.color || 'var(--color-primary)',
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── 4. Coming Up ── */}
-        <div className="card dashboard-card">
-          <div className="card-header">
-            <h2 className="card-title">
-              <span className="card-title-icon">📆</span>
-              Coming Up
-            </h2>
-            <Link href="/calendar" className="btn btn-ghost">
-              Calendar
-            </Link>
+                ))}
+              </div>
+            )}
           </div>
 
-          {upcomingDeadlines.length === 0 ? (
-            <div className="empty-state" style={{ padding: 'var(--space-5)' }}>
-              <p className="empty-state-text">
-                No upcoming deadlines on your calendar.
-              </p>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setIsTaskModalOpen(true)}
-              >
-                ＋ Add task with due date
-              </button>
+          {/* Regular Active Tasks */}
+          <div className="card calm-panel">
+            <div className="panel-header">
+              <div className="panel-title-group">
+                <span className="panel-bullet tasks"></span>
+                <h2 className="panel-title">Active Tasks</h2>
+              </div>
+              <Link href="/inbox" className="btn-link-action">
+                View all ({activeTasks.length})
+              </Link>
             </div>
-          ) : (
-            <div className="upcoming-list">
-              {upcomingDeadlines.slice(0, 4).map((item) => (
-                <div className="upcoming-item" key={item.id}>
-                  <div
-                    className="upcoming-dot"
-                    style={{
-                      background:
-                        item.priority === 'urgent'
-                          ? 'var(--color-danger)'
-                          : item.priority === 'important'
-                          ? 'var(--color-warning)'
-                          : 'var(--color-accent)',
-                    }}
-                  />
-                  <span className="upcoming-text">
-                    <span style={{ marginRight: '6px', fontSize: '0.85em' }}>
-                      {(item.category || 'personal') === 'academic' ? '🎓' : '🏠'}
-                    </span>
-                    <LinkifiedText text={item.text} />
-                  </span>
-                  <span className="upcoming-date">{item.dueDate}</span>
+
+            {regularTasks.length === 0 && topThreeList.length === 0 ? (
+              <div className="panel-empty-simple">
+                <p>All caught up! No pending tasks.</p>
+              </div>
+            ) : regularTasks.length === 0 ? (
+              <div className="panel-empty-simple">
+                <p>No other regular tasks for today.</p>
+              </div>
+            ) : (
+              <div className="compact-task-list">
+                {regularTasks.map((task) => (
+                  <div key={task.id} className="compact-task-row">
+                    <button
+                      type="button"
+                      className={`compact-checkbox ${task.completed ? 'checked' : ''}`}
+                      onClick={() => toggleTaskComplete(user?.uid, task.id, task.completed)}
+                      aria-label="Mark task complete"
+                    >
+                      {task.completed ? '✓' : ''}
+                    </button>
+                    <div className="compact-task-info">
+                      <span className="compact-task-text">
+                        <LinkifiedText text={task.text} />
+                      </span>
+                      <div className="compact-task-meta">
+                        <span className={`badge-pill ${task.category || 'personal'}`}>
+                          {task.category === 'academic' ? 'Academic' : 'Personal'}
+                        </span>
+                        {task.dueDate && (
+                          <span className="badge-pill due">Due {task.dueDate}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Next Scheduled Item & Day at a Glance */}
+        <div className="dashboard-schedule-column">
+          {/* Next Scheduled Item */}
+          <div className="card calm-panel next-item-panel">
+            <div className="panel-header">
+              <div className="panel-title-group">
+                <span className="panel-bullet schedule"></span>
+                <h2 className="panel-title">Next Scheduled Item</h2>
+              </div>
+              <Link href="/calendar" className="btn-link-action">
+                Full schedule
+              </Link>
+            </div>
+
+            {nextScheduledItem ? (
+              <div className="next-item-body">
+                <div className="next-item-badge">
+                  {nextScheduledItem.isNow ? 'In Progress' : 'Upcoming Today'}
                 </div>
-              ))}
+                <h3 className="next-item-title">{nextScheduledItem.title}</h3>
+                <span className="next-item-time">{nextScheduledItem.timeLabel}</span>
+              </div>
+            ) : (
+              <div className="panel-empty-simple">
+                <p>No time blocks scheduled for today.</p>
+                <Link href="/calendar" className="btn-link-action">
+                  + Plan in calendar
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Metrics (Restrained & Calm) */}
+          <div className="metrics-strip">
+            <div className="metric-box">
+              <span className="metric-val">{activeTasks.length}</span>
+              <span className="metric-lbl">Active</span>
+            </div>
+            <div className="metric-box">
+              <span className="metric-val">{completedTasks.length}</span>
+              <span className="metric-lbl">Completed</span>
+            </div>
+            <div className="metric-box">
+              <span className="metric-val">{formatFocusTime(focusTimeMins)}</span>
+              <span className="metric-lbl">Focus Time</span>
+            </div>
+          </div>
+
+          {/* Compact Habits Progress */}
+          {habits.length > 0 && (
+            <div className="card calm-panel">
+              <div className="panel-header">
+                <div className="panel-title-group">
+                  <span className="panel-bullet habits"></span>
+                  <h2 className="panel-title">Daily Habits</h2>
+                </div>
+                <Link href="/habits" className="btn-link-action">
+                  Manage
+                </Link>
+              </div>
+
+              <div className="habits-compact-list">
+                {habits.slice(0, 4).map((h) => (
+                  <div key={h.id} className="habit-compact-row">
+                    <div className="habit-compact-info">
+                      <span className="habit-compact-name">{h.name}</span>
+                      <span className="habit-compact-streak">
+                        {h.streak || 0} day streak
+                      </span>
+                    </div>
+                    <div className="habit-progress-bar">
+                      <div
+                        className="habit-progress-fill"
+                        style={{
+                          width: `${Math.min(100, Math.round(((h.done || 0) / (h.target || 1)) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Cloud sync status banner */}
-      <div className="sample-notice">
-        <span className="sample-notice-icon">
-          {isConfigured ? '☁️' : '💾'}
-        </span>
-        {isConfigured && user
-          ? `Connected to Firebase Cloud Firestore for ${user.email} (Spark Free Tier • Private to you)`
-          : 'Running in local mode.'}
-      </div>
-
-      {/* Task Creation Modal */}
+      {/* Task Modal for detailed edits */}
       <TaskModal
         isOpen={isTaskModalOpen}
+        initialCategory={modalCategory}
         onClose={() => setIsTaskModalOpen(false)}
       />
     </div>
