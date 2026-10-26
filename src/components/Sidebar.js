@@ -15,7 +15,6 @@ const NAV_SECTIONS = [
       { href: '/dashboard',  icon: '📋', text: 'Dashboard' },
       { href: '/inbox',      icon: '📥', text: 'Inbox',      badgeKey: 'inbox' },
       { href: '/calendar',   icon: '📅', text: 'Calendar' },
-      { href: '/projects',   icon: '📁', text: 'Projects' },
     ],
   },
   {
