@@ -21,11 +21,9 @@ function uid() { return Math.random().toString(36).slice(2, 9); }
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const [view, setView]     = useState('day');
   const [blocks, setBlocks] = useState([]);
   const [tasks, setTasks]   = useState([]);
   const [currentHour, setCurrentHour] = useState(null);
-  const [todayInfo, setTodayInfo] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [mStart, setMStart]       = useState(0);
@@ -47,21 +45,7 @@ export default function CalendarPage() {
   };
 
   useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      setCurrentHour(now.getHours());
-      const curYear = now.getFullYear();
-      const curMonth = now.getMonth();
-      setTodayInfo({
-        now,
-        curYear,
-        curMonth,
-        daysInMonth: new Date(curYear, curMonth + 1, 0).getDate(),
-        startOffset: (new Date(curYear, curMonth, 1).getDay() + 6) % 7,
-        monthName: now.toLocaleString('default', { month: 'long' }),
-        todayDate: now.getDate(),
-      });
-    };
+    const tick = () => setCurrentHour(new Date().getHours());
     tick();
     const id = setInterval(tick, 60000);
     return () => clearInterval(id);
@@ -121,32 +105,26 @@ export default function CalendarPage() {
     setModalOpen(false);
   };
 
-  const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const { curYear, curMonth, daysInMonth, startOffset, monthName, todayDate } = todayInfo || {};
+
 
   return (
     <div className='animate-fade-in'>
       <div className='page-header'>
         <div>
-          <h1 className='page-title'>📅 Calendar &amp; Time Blocking</h1>
+          <h1 className='page-title'>📅 Time Blocking</h1>
           <p className='page-subtitle'>Click any row to schedule a block. Blocks can span multiple hours.</p>
         </div>
-        <div className='calendar-view-toggles'>
-          <button className={'calendar-view-btn' + (view === 'day' ? ' active' : '')} onClick={() => setView('day')}>Daily Time Blocks</button>
-          <button className={'calendar-view-btn' + (view === 'month' ? ' active' : '')} onClick={() => setView('month')}>Monthly Overview</button>
-        </div>
+        <button className='btn btn-ghost' onClick={() => saveBlocks([])}>Clear All</button>
       </div>
 
-      {view === 'day' ? (
-        <div className='card'>
-          <div className='card-header'>
-            <h2 className='card-title'>
-              <span className='card-title-icon'>🕐</span>
-              Today&apos;s Schedule
-            </h2>
-            <button className='btn btn-ghost' onClick={() => saveBlocks([])}>Clear All</button>
-          </div>
-          <div className='schedule-grid'>
+      <div className='card'>
+        <div className='card-header'>
+          <h2 className='card-title'>
+            <span className='card-title-icon'>🕐</span>
+            Today&apos;s Schedule
+          </h2>
+        </div>
+        <div className='schedule-grid'>
             {HOURS.map((hour) => {
               if (coveredSet.has(hour)) return null;
               const block  = blocks.find((b) => b.startHour === hour);
@@ -186,41 +164,8 @@ export default function CalendarPage() {
                 </div>
               );
             })}
-          </div>
         </div>
-      ) : (
-        <div className='card'>
-          <div className='card-header'>
-            <h2 className='card-title'>
-              <span className='card-title-icon'>🗓️</span>
-              {monthName} {curYear}
-            </h2>
-          </div>
-          <div className='month-calendar-grid'>
-            {daysOfWeek.map((d) => (
-              <div key={d} className='month-day-header'>{d}</div>
-            ))}
-            {todayInfo && Array.from({ length: startOffset }, (_, i) => <div key={'e' + i} />)}
-            {todayInfo && Array.from({ length: daysInMonth }, (_, i) => {
-              const dayNum = i + 1;
-              const isToday = dayNum === todayDate;
-              const dayTasks = tasks.filter((t) => {
-                if (!t.dueDate) return false;
-                const parts = t.dueDate.split('-').map(Number);
-                return parts[0] === curYear && parts[1] === curMonth + 1 && parts[2] === dayNum;
-              });
-              return (
-                <div key={dayNum} className={'month-day-cell' + (isToday ? ' is-today' : '')}>
-                  <div className='month-day-num'>{dayNum}{isToday ? ' (Today)' : ''}</div>
-                  {dayTasks.map((t) => (
-                    <div key={t.id} className='month-day-dot' style={{ background: t.priority === 'urgent' ? 'var(--color-danger)' : t.priority === 'important' ? 'var(--color-warning)' : 'var(--color-primary)' }} title={t.text}>{t.text}</div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      </div>
 
       {modalOpen && (
         <div className='task-modal-backdrop' onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}>

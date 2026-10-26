@@ -2,36 +2,8 @@
    Calendar & Time-Blocking — Polished Styles
    ============================================================ */
 
-/* ── View toggle ── */
-.calendar-view-toggles {
-  display: flex;
-  background: var(--bg-card);
-  padding: 3px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border-light);
-  gap: 2px;
-  box-shadow: var(--shadow-xs);
-}
-.calendar-view-btn {
-  padding: 0.4rem 1.1rem;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  letter-spacing: 0.01em;
-}
-.calendar-view-btn:hover { color: var(--text-primary); }
-.calendar-view-btn.active {
-  background: var(--color-primary);
-  color: #fff;
-  box-shadow: 0 2px 8px var(--color-primary-glow);
-}
 
-/* ── Day schedule grid ── */
+
 .schedule-grid {
   display: flex;
   flex-direction: column;
@@ -176,50 +148,6 @@
   margin-top: 5px;
 }
 
-/* ── Month grid ── */
-.month-calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-}
-.month-day-cell {
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-2);
-  min-height: 88px;
-  display: flex;
-  flex-direction: column;
-  transition: all var(--transition-fast);
-}
-.month-day-cell:hover { border-color: var(--border-medium); }
-.month-day-cell.is-today {
-  border-color: var(--color-primary);
-  background: var(--color-primary-ghost);
-}
-.month-day-num {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--text-tertiary);
-  margin-bottom: var(--space-1);
-  line-height: 1;
-}
-.month-day-cell.is-today .month-day-num { color: var(--color-primary); }
-.month-day-dot {
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 2px 5px;
-  border-radius: var(--radius-xs);
-  color: #fff;
-  margin-top: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  opacity: 0.88;
-}
-
-/* ── Block add/edit modal ── */
 .block-modal { max-width: 460px; }
 .block-time-row {
   display: flex;
