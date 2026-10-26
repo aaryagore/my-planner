@@ -9,6 +9,7 @@ export default function TaskModal({
   isOpen,
   onClose,
   initialPriority = 'important',
+  initialCategory = 'personal',
   initialIsTopThree = false,
   onTaskCreated,
 }) {
@@ -16,6 +17,7 @@ export default function TaskModal({
   const [text, setText] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState(initialPriority);
+  const [category, setCategory] = useState(initialCategory);
   const [dueDate, setDueDate] = useState('');
   const [isTopThree, setIsTopThree] = useState(initialIsTopThree);
   const [submitting, setSubmitting] = useState(false);
@@ -25,10 +27,11 @@ export default function TaskModal({
     setText('');
     setDescription('');
     setPriority(initialPriority || 'important');
+    setCategory(initialCategory || 'personal');
     setDueDate('');
     setIsTopThree(Boolean(initialIsTopThree));
     setSubmitting(false);
-  }, [initialPriority, initialIsTopThree]);
+  }, [initialPriority, initialCategory, initialIsTopThree]);
 
   // Always reset fields to fresh state every time the modal is opened
   useEffect(() => {
@@ -55,6 +58,7 @@ export default function TaskModal({
       text: trimmedText,
       description: description.trim(),
       priority,
+      category,
       dueDate: dueDate || null,
       isTopThree,
     };
@@ -108,6 +112,26 @@ export default function TaskModal({
                 autoFocus
                 required
               />
+            </div>
+
+            <div className="task-input-field">
+              <label>Category</label>
+              <div className="category-toggle">
+                <button
+                  type="button"
+                  className={`category-btn${category === 'personal' ? ' active personal' : ''}`}
+                  onClick={() => setCategory('personal')}
+                >
+                  🏠 Personal
+                </button>
+                <button
+                  type="button"
+                  className={`category-btn${category === 'academic' ? ' active academic' : ''}`}
+                  onClick={() => setCategory('academic')}
+                >
+                  🎓 Academic
+                </button>
+              </div>
             </div>
 
             <div className="task-input-field">

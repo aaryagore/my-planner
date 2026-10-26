@@ -120,6 +120,48 @@
   gap: var(--space-2);
 }
 
+/* Category toggle (Personal / Academic) */
+.category-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.category-btn {
+  padding: 0.65rem var(--space-3);
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  transition: all var(--transition-fast);
+  letter-spacing: -0.01em;
+}
+
+.category-btn:hover {
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+}
+
+.category-btn.active.personal {
+  background: var(--color-primary-ghost);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.category-btn.active.academic {
+  background: var(--color-accent-ghost);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+
 .priority-btn {
   padding: 0.6rem var(--space-2);
   border: 1.5px solid var(--border-light);

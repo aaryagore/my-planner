@@ -238,6 +238,20 @@ export default function DashboardPage() {
                     <LinkifiedText text={item.text} />
                   </span>
                   <span className="top-three-badge">
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        padding: '1px 6px',
+                        borderRadius: 'var(--radius-full)',
+                        marginRight: '6px',
+                        background: (item.category || 'personal') === 'academic' ? 'var(--color-accent-ghost)' : 'var(--color-primary-ghost)',
+                        color: (item.category || 'personal') === 'academic' ? 'var(--color-accent)' : 'var(--color-primary)',
+                        border: `1px solid ${(item.category || 'personal') === 'academic' ? 'hsla(168, 60%, 42%, 0.2)' : 'hsla(234, 68%, 55%, 0.2)'}`,
+                      }}
+                    >
+                      {(item.category || 'personal') === 'academic' ? '🎓 Academic' : '🏠 Personal'}
+                    </span>
                     {priorityBadge(item.priority)}
                   </span>
                 </div>
@@ -373,6 +387,9 @@ export default function DashboardPage() {
                     }}
                   />
                   <span className="upcoming-text">
+                    <span style={{ marginRight: '6px', fontSize: '0.85em' }}>
+                      {(item.category || 'personal') === 'academic' ? '🎓' : '🏠'}
+                    </span>
                     <LinkifiedText text={item.text} />
                   </span>
                   <span className="upcoming-date">{item.dueDate}</span>
