@@ -6,6 +6,14 @@ import { subscribeToTasks } from '@/lib/tasksService';
 import './calendar.css';
 
 const DEFAULT_SLOTS = [
+  { time: '00:00', title: null, color: 'var(--color-primary)' },
+  { time: '01:00', title: null, color: 'var(--color-primary)' },
+  { time: '02:00', title: null, color: 'var(--color-primary)' },
+  { time: '03:00', title: null, color: 'var(--color-primary)' },
+  { time: '04:00', title: null, color: 'var(--color-primary)' },
+  { time: '05:00', title: null, color: 'var(--color-primary)' },
+  { time: '06:00', title: null, color: 'var(--color-accent)' },
+  { time: '07:00', title: null, color: 'var(--color-accent)' },
   { time: '08:00', title: null, color: 'var(--color-accent)' },
   { time: '09:00', title: null, color: 'var(--color-primary)' },
   { time: '10:00', title: null, color: 'var(--color-primary)' },
@@ -16,7 +24,12 @@ const DEFAULT_SLOTS = [
   { time: '15:00', title: null, color: 'var(--color-primary)' },
   { time: '16:00', title: null, color: 'var(--color-primary)' },
   { time: '17:00', title: null, color: 'var(--color-accent)' },
-  { time: '18:00', title: null, color: 'var(--color-primary)' },
+  { time: '18:00', title: null, color: 'var(--color-accent)' },
+  { time: '19:00', title: null, color: 'var(--color-warning)' },
+  { time: '20:00', title: null, color: 'var(--color-warning)' },
+  { time: '21:00', title: null, color: 'var(--color-primary)' },
+  { time: '22:00', title: null, color: 'var(--color-primary)' },
+  { time: '23:00', title: null, color: 'var(--color-primary)' },
 ];
 
 export default function CalendarPage() {
@@ -27,6 +40,18 @@ export default function CalendarPage() {
   const [activeSlotTime, setActiveSlotTime] = useState(null);
   const [modalTitle, setModalTitle] = useState('');
   const [modalColor, setModalColor] = useState('var(--color-primary)');
+  const [currentHour, setCurrentHour] = useState(null);
+
+  // Track current hour for live highlight
+  useEffect(() => {
+    const update = () => {
+      const h = new Date().getHours();
+      setCurrentHour(String(h).padStart(2, '0') + ':00');
+    };
+    update();
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const storageKey = `my_planner_schedule_${user?.uid || 'guest'}`;
 
@@ -34,9 +59,14 @@ export default function CalendarPage() {
     const saved = localStorage.getItem(storageKey);
     if (saved) {
       try {
-        setSlots(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // Merge: keep saved slot data, but add any new time slots from DEFAULT_SLOTS
+        const savedByTime = Object.fromEntries(parsed.map((s) => [s.time, s]));
+        const merged = DEFAULT_SLOTS.map((def) => savedByTime[def.time] || def);
+        setSlots(merged);
       } catch (e) {
         console.warn(e);
+        setSlots(DEFAULT_SLOTS);
       }
     } else {
       setSlots(DEFAULT_SLOTS);
@@ -141,10 +171,19 @@ export default function CalendarPage() {
           <div className="schedule-grid">
             {slots.map((slot) => {
               const hasBlock = Boolean(slot.title);
+              const isNow = slot.time === currentHour;
+              const hourNum = parseInt(slot.time, 10);
+              const isNight = hourNum >= 0 && hourNum <= 5;
 
               return (
-                <div className="schedule-row" key={slot.time}>
-                  <div className="schedule-time-col">{slot.time}</div>
+                <div
+                  className={`schedule-row${isNow ? ' is-now' : ''}${isNight ? ' is-night' : ''}`}
+                  key={slot.time}
+                >
+                  <div className="schedule-time-col">
+                    {slot.time}
+                    {isNow && <span className="now-dot" title="Current hour" />}
+                  </div>
                   <div
                     className={`schedule-slot ${hasBlock ? 'has-block' : ''}`}
                     style={
