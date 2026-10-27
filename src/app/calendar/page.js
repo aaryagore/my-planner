@@ -14,6 +14,8 @@ const COLOR_OPTIONS = [
   { label: 'Emerald', value: '#10b981' },
 ];
 
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
 function pad(n) {
   return String(n).padStart(2, '0');
 }
@@ -204,7 +206,7 @@ export default function CalendarPage() {
           <button
             type="button"
             className="btn-cal-action"
-            onClick={() => openCreate(Math.max(7, Math.min(22, currentHour)))}
+            onClick={() => openCreate(Math.max(7, Math.min(22, currentHour ?? 9)))}
           >
             + Add Block
           </button>
