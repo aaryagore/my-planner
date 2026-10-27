@@ -36,6 +36,8 @@ export default function FocusPage() {
   const [customInputVal, setCustomInputVal] = useState('25');
   const timerRef = useRef(null);
 
+  const currentTask = tasks.find((t) => t.id === selectedTaskId);
+
   const focusStorageKey = `my_planner_focus_${user?.uid || 'guest'}`;
   const timerSettingsKey = `my_planner_timer_settings_${user?.uid || 'guest'}`;
 

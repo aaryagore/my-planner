@@ -21,6 +21,24 @@ export default function DashboardPage() {
   const [currentHour, setCurrentHour] = useState(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [modalCategory, setModalCategory] = useState('personal');
+  const [showGuide, setShowGuide] = useState(false);
+
+  // Check if onboarding guide was dismissed
+  useEffect(() => {
+    try {
+      const dismissed = localStorage.getItem('my_planner_guide_dismissed');
+      if (!dismissed) {
+        setShowGuide(true);
+      }
+    } catch {}
+  }, []);
+
+  const handleDismissGuide = () => {
+    setShowGuide(false);
+    try {
+      localStorage.setItem('my_planner_guide_dismissed', 'true');
+    } catch {}
+  };
 
   // Friendly date and greeting
   useEffect(() => {
@@ -191,6 +209,49 @@ export default function DashboardPage() {
           onTaskCreated={() => {}}
         />
       </section>
+
+      {/* 3-Step Quick Start Onboarding (Dismissible) */}
+      {showGuide && (
+        <section className="dashboard-guide-card animate-fade-in" aria-label="Getting started guide">
+          <div className="guide-header">
+            <div className="guide-title-row">
+              <span className="guide-icon" aria-hidden="true">✨</span>
+              <h2 className="guide-title">How to get the most out of your day:</h2>
+            </div>
+            <button
+              type="button"
+              className="btn-guide-dismiss"
+              onClick={handleDismissGuide}
+              title="Dismiss quick guide"
+            >
+              ✕ Got it
+            </button>
+          </div>
+          <div className="guide-steps-grid">
+            <div className="guide-step-item">
+              <span className="guide-step-num">1</span>
+              <div>
+                <strong>Capture Quickly</strong>
+                <p>Click the mic or type above. Say <em>&ldquo;Read history notes tomorrow at 4pm&rdquo;</em> for auto-dates.</p>
+              </div>
+            </div>
+            <div className="guide-step-item">
+              <span className="guide-step-num">2</span>
+              <div>
+                <strong>Focus on Top 3</strong>
+                <p>Pick up to 3 high-impact tasks for today to eliminate overwhelm and guarantee progress.</p>
+              </div>
+            </div>
+            <div className="guide-step-item">
+              <span className="guide-step-num">3</span>
+              <div>
+                <strong>Block Your Hours</strong>
+                <p>Visit the <Link href="/calendar">Calendar</Link> to slot focus blocks between 7:00 and 22:00.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Main Focus Grid */}
       <div className="dashboard-focus-grid">
